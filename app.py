@@ -32,7 +32,6 @@ div[data-testid="stMetric"] {
 <div class="hero">
   <h1>Extracteur PDF</h1>
   <p>Extraction automatique des documents fournisseurs vers Excel</p>
-  <div class="copyright">© 2026 Michel RACHOU</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -127,22 +126,39 @@ def detect_document_number(text, supplier):
     return "Non détecté"
 
 def detect_total_ht(text):
-    candidates = []
-    for raw in text.splitlines():
-        line = clean(raw)
+    # Variantes fournisseurs : TOTAL HT, Total H.T., TOTAL H.T.., TOTAL H.T. :
+    # On exclut explicitement TTC, TVA et "hors écocontribution".
+    normalized = text.replace("\u00a0", " ")
+    patterns = [
+        r"(?im)^\s*TOTAL\s+H\s*\.?\s*T\s*\.?\s*[:.]*(?:\s*€)?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\b",
+        r"(?im)^\s*Total\s+HT\s*[:.]*(?:\s*€)?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\b",
+    ]
+    for pat in patterns:
+        for m in re.finditer(pat, normalized):
+            line_start = normalized.rfind("\n", 0, m.start()) + 1
+            line_end = normalized.find("\n", m.end())
+            if line_end == -1:
+                line_end = len(normalized)
+            line = normalized[line_start:line_end].lower()
+            if any(x in line for x in ["hors ecocontrib", "hors éco", "ttc", "tva"]):
+                continue
+            value = fr_float(m.group(1))
+            if value is not None:
+                return value
+
+    # Secours si le libellé et le montant sont séparés par une mise en page PDF atypique.
+    lines = [clean(x) for x in normalized.splitlines()]
+    for i, line in enumerate(lines):
         low = line.lower()
-        if "total" not in low or "ht" not in low:
-            continue
-        if any(x in low for x in ["total ttc", "total t.v.a", "total tva", "hors ecocontrib", "hors éco"]):
-            continue
-        nums = re.findall(r"(?:\d{1,3}(?:[ .]\d{3})+|\d+)[,.]\d{2,4}", line)
-        if nums:
-            val = fr_float(nums[-1])
-            if val is not None:
-                exact = bool(re.search(r"total\s+h\.?\s*t\.?\s*[:.]?", low))
-                candidates.append((2 if exact else 1, val))
-    if candidates:
-        return sorted(candidates, key=lambda x: x[0])[-1][1]
+        if re.search(r"\btotal\s+h\s*\.?\s*t\s*\.?", low) and not any(x in low for x in ["hors ecocontrib", "hors éco", "ttc", "tva"]):
+            nums = re.findall(r"(?:\d{1,3}(?:[ .]\d{3})+|\d+)[,.]\d{2,4}", line)
+            if nums:
+                return fr_float(nums[-1])
+            # Cherche dans les 2 lignes suivantes seulement.
+            for nxt in lines[i+1:i+3]:
+                nums = re.findall(r"(?:\d{1,3}(?:[ .]\d{3})+|\d+)[,.]\d{2,4}", nxt)
+                if nums:
+                    return fr_float(nums[0])
     return None
 
 def strip_eco(desc):
@@ -265,8 +281,6 @@ def new_document():
     st.rerun()
 
 top1, top2 = st.columns([5, 1])
-with top1:
-    st.caption("1 document à la fois • N° document • Désignation • Quantité • Prix unitaire • Contrôle du Total HT")
 with top2:
     if st.button("↻ Nouveau BL", use_container_width=True):
         new_document()
@@ -361,3 +375,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
+st.markdown('<div class="copyright">© 2026 Michel RACHOU</div>', unsafe_allow_html=True)
