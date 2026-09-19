@@ -355,7 +355,12 @@ def extract_document(pdf_bytes):
             if specific:
                 rows = specific
 
-        rows = dedupe(rows)
+        # Ne pas supprimer les lignes identiques chez AREDIS :
+        # un même article peut être réellement livré/facturé deux fois sur le BL
+        # (notamment lors d'un passage de page).
+        if supplier != "AREDIS":
+            rows = dedupe(rows)
+
         return rows, supplier, number, total_ht, extra_charges
 
 def fmt_money(v):
