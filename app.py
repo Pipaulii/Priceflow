@@ -1,10 +1,12 @@
 import io
 import json
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
 import pdfplumber
+from pypdf import PdfReader
 import pandas as pd
 import streamlit as st
 
@@ -66,12 +68,15 @@ def fr_float(s):
     if s is None:
         return None
     s = str(s).strip().replace("€", "").replace("\u00a0", " ").replace(" ", "")
-    m = re.search(r"-?\d+(?:[.,]\d+)?", s)
+    m = re.search(r"-?\d[\d.,]*", s)
     if not m:
         return None
-    s = m.group(0)
+    s = m.group(0).rstrip(".,")
     if "," in s:
+        # Format français : 1.348,14 -> 1348.14 ; 50,943 -> 50.943
         s = s.replace(".", "").replace(",", ".")
+    elif s.count(".") > 1:
+        s = s.replace(".", "")
     try:
         return float(s)
     except ValueError:
@@ -97,6 +102,11 @@ def detect_supplier(text):
     if "prolians" in low or "descours & cabaud" in low: return "PROLIANS"
     if "lorflex" in low: return "LORFLEX"
     if "fritec" in low: return "FRITEC"
+    if "richardson" in low and "proposition" in low: return "RICHARDSON"
+    if "frans bonhomme" in low or "fransbonhomme.fr" in low: return "FRANS BONHOMME"
+    if "point plastique" in low or ("devis n°" in low and "jouanneau" in low): return "H-TUBE / POINT PLASTIQUE"
+    if "rodaclim" in low or "klima13" in low: return "RODACLIM"
+    if "pack service gemenos" in low: return "PACK SERVICE"
     return "Fournisseur non identifié"
 
 def detect_document_number(text, supplier):
@@ -137,6 +147,11 @@ def detect_document_number(text, supplier):
         "PROLIANS": [r"Bulletin\s+de\s+livraison\s*\*?\s*([0-9]{5,})", r"\*\s*([0-9]{5,})"],
         "LORFLEX": [r"\bDevis\s+([0-9]{6,})\b"],
         "FRITEC": [r"Numéro\s*:\s*([0-9]{6,})"],
+        "RICHARDSON": [r"PROPOSITION\s*N\.?\s*:\s*([0-9-]+)", r"N\.\s*:\s*([0-9-]+)\s+DU"],
+        "FRANS BONHOMME": [r"Offre\s+de\s+prix\s+n[°º]\s*([0-9]+)"],
+        "H-TUBE / POINT PLASTIQUE": [r"DEVIS\s+n[°º]\s*([0-9-]+)"],
+        "RODACLIM": [r"\b(AR[0-9]{6,})\b"],
+        "PACK SERVICE": [r"\b\d{2}/\d{2}/\d{4}\s+([0-9]{5,})\s+CGE"],
     }
     for pat in supplier_patterns.get(supplier, []):
         m = re.search(pat, text, re.I)
@@ -160,6 +175,11 @@ def detect_total_ht(text, supplier=None):
         "PROLIANS": [r"TOTAL\s+H\.T\.\s*:\s*" + money],
         "LORFLEX": [r"Total\s+brut\s+HT\s+" + money, r"Total\s+postes\s+" + money],
         "FRITEC": [r"Montant\s+total\s+de\s+la\s+commande\s+net\s+HT\s+" + money],
+        "RICHARDSON": [r"MONTANT\s+H\.T\s+" + money],
+        "FRANS BONHOMME": [r"Total\s+HT\s*:\s*" + money, r"Total\s*:\s*" + money],
+        "H-TUBE / POINT PLASTIQUE": [r"TOTAL\s+H\.T\s+" + money],
+        "RODACLIM": [r"Total\s+HT\s+" + money],
+        "PACK SERVICE": [r"Total\s+Devis\s+HT\s+" + money, r"NET\s+H\.T\..*?\n\s*" + money],
     }
     for pat in specific_patterns.get(supplier, []):
         m = re.search(pat, normalized, re.I)
@@ -474,6 +494,64 @@ def text_rows(text, supplier):
             if m:
                 rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
 
+    elif supplier == "RICHARDSON":
+        pat = re.compile(
+            r"^\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+U\s+"
+            r"(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)$",
+            re.I
+        )
+        for line in lines:
+            m = pat.match(line)
+            if m:
+                rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+
+    elif supplier == "FRANS BONHOMME":
+        pat = re.compile(
+            r"^\S+(?:\s+\S+)?\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"
+            r"(?:ML|PCE|U|UN|M|KG)\s+(\d+(?:[.,]\d+)?)\s*€?\s+"
+            r"\d+(?:[.,]\d+)?\s*€?$",
+            re.I
+        )
+        for line in lines:
+            m = pat.match(line)
+            if m:
+                rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+
+    elif supplier == "H-TUBE / POINT PLASTIQUE":
+        pat = re.compile(
+            r"^(.+?)\s+\S+\s+(\d+(?:[.,]\d+)?)\s+(?:ML|UN|PCE|U)\s+"
+            r"\d+(?:[.,]\d+)?(?:\s+\S+)?\s+(\d+(?:[.,]\d+)?)\s+"
+            r"\d+(?:[.,]\d+)?\s+\d+$",
+            re.I
+        )
+        for line in lines:
+            m = pat.match(line)
+            if m and not line.upper().startswith("EAN13"):
+                rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+
+    elif supplier == "RODACLIM":
+        pat = re.compile(
+            r"^\S+\s+(.+?)\s+(?:Pièce|Piece|PCE|U)\s+"
+            r"(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)?(?:\s+\d+%)?\s+"
+            r"(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)?\s+\d{2}/\d{2}/\d{2}$",
+            re.I
+        )
+        for line in lines:
+            m = pat.match(line)
+            if m:
+                rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+
+    elif supplier == "PACK SERVICE":
+        pat = re.compile(
+            r"^\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"
+            r"(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)?\s+\d+$",
+            re.I
+        )
+        for line in lines:
+            m = pat.match(line)
+            if m:
+                rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+
     elif supplier == "FRITEC":
         # Ligne d'entête article : position, quantité, unité, référence, PU, date.
         pat = re.compile(
@@ -508,9 +586,24 @@ def dedupe(rows):
             out.append(r)
     return out
 
+def best_pdf_text(pdf_bytes):
+    """Choisit la meilleure couche texte disponible sans OCR."""
+    texts = []
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            texts.append("\n".join(page.extract_text(x_tolerance=2, y_tolerance=3) or "" for page in pdf.pages))
+    except Exception:
+        pass
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        texts.append("\n".join((page.extract_text() or "") for page in reader.pages).replace("\x00", ""))
+    except Exception:
+        pass
+    return "\n".join(t for t in texts if t)
+
 def extract_document(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        text = "\n".join(page.extract_text(x_tolerance=2, y_tolerance=3) or "" for page in pdf.pages)
+        text = best_pdf_text(pdf_bytes)
         supplier = detect_supplier(text)
         number = detect_document_number(text, supplier)
         total_ht = detect_total_ht(text, supplier)
@@ -518,7 +611,7 @@ def extract_document(pdf_bytes):
 
         rows = table_rows(pdf)
         # Certains fournisseurs ont des PDF sans tableau exploitable.
-        if not rows or supplier in ["FIRST ROBINETTERIE", "ANCONETTI", "PUM", "MPS", "ALDES", "REXEL", "OUEST ISOL", "PROLIANS", "LORFLEX", "FRITEC"]:
+        if not rows or supplier in ["FIRST ROBINETTERIE", "ANCONETTI", "PUM", "MPS", "ALDES", "REXEL", "OUEST ISOL", "PROLIANS", "LORFLEX", "FRITEC", "RICHARDSON", "FRANS BONHOMME", "H-TUBE / POINT PLASTIQUE", "RODACLIM", "PACK SERVICE"]:
             specific = text_rows(text, supplier)
             if specific:
                 rows = specific
@@ -729,7 +822,50 @@ def extract_rental(pdf_bytes):
 
     return result
 
-tab_achats, tab_location = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations"])
+def comparison_key(desc):
+    """Clé métier pour rapprocher des désignations fournisseurs différentes."""
+    s = unicodedata.normalize("NFKD", clean(desc).upper()).encode("ascii", "ignore").decode()
+    s = s.replace("Ø", "D")
+    fee_words = ["PORT", "LIVRAISON", "CARBURANT", "ECO", "SURCHARGE", "FRAIS"]
+    if any(w in s for w in fee_words):
+        return "FRAIS | " + re.sub(r"\s+", " ", s)
+
+    if "TUBE" in s and ("PEHD" in s or "PE100" in s):
+        family = "TUBE PEHD"
+    elif "TUBE" in s:
+        family = "TUBE"
+    elif "COUDE" in s:
+        family = "COUDE"
+    elif "CULOT" in s or "BRANCHEMENT" in s or "EMBRANC" in s:
+        family = "CULOTTE/EMBRANCHEMENT"
+    elif "MANCHON" in s or "COULISSE" in s:
+        family = "MANCHON"
+    elif "AUGMENT" in s or "REDUC" in s:
+        family = "AUGMENTATION/REDUCTION"
+    else:
+        family = re.sub(r"[^A-Z0-9]+", " ", s).strip()[:45]
+
+    dims = re.findall(r"(?:D|DN|DIA)\s*([0-9]{2,3})(?:\s*[Xx]\s*([0-9]{2,3}))?", s)
+    if not dims:
+        dims = re.findall(r"\b([0-9]{2,3})\s*[Xx]\s*([0-9]{2,3})\b", s)
+    dimtxt = ""
+    if dims:
+        a, b = dims[0]
+        dimtxt = a + (("X" + b) if b else "")
+
+    angle = ""
+    ma = re.search(r"\b(45|90)\s*(?:D|DEG|°)", s)
+    if ma:
+        angle = ma.group(1) + "°"
+
+    joint = ""
+    if re.search(r"\bFF\b", s): joint = "FF"
+    elif re.search(r"\bMF\b", s): joint = "MF"
+
+    return " | ".join(x for x in [family, angle, dimtxt, joint] if x)
+
+
+tab_achats, tab_location, tab_compare = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations", "⚖️ Comparatif"])
 
 with tab_achats:
     st.subheader("📦 Achats / Fournisseurs")
@@ -1012,6 +1148,129 @@ with tab_location:
         except Exception as e:
             st.error(f"Erreur de lecture du PDF Location : {e}")
 
+
+with tab_compare:
+    st.subheader("⚖️ Comparatif")
+    st.caption("Déposez plusieurs devis fournisseurs pour comparer les articles équivalents et leurs écarts de prix.")
+
+    compare_files = st.file_uploader(
+        "Déposez 2 devis ou plus",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key="compare_pdfs",
+    )
+
+    if compare_files:
+        if len(compare_files) < 2:
+            st.info("Ajoutez au moins 2 devis pour lancer la comparaison.")
+        else:
+            offers = []
+            errors = []
+            for f in compare_files:
+                try:
+                    rws, sup, num, tht, extras = extract_document(f.getvalue())
+                    offers.append({"Fichier": f.name, "Fournisseur": sup, "N° document": num, "Total HT": tht, "Lignes": rws})
+                except Exception as e:
+                    errors.append(f"{f.name} : {e}")
+
+            if errors:
+                st.warning("Certains fichiers n'ont pas pu être lus : " + " | ".join(errors))
+
+            summary = pd.DataFrame([{
+                "Fournisseur": o["Fournisseur"],
+                "N° document": o["N° document"],
+                "Total HT document": o["Total HT"],
+                "Articles détectés": len(o["Lignes"]),
+            } for o in offers])
+            st.subheader("Synthèse des devis")
+            st.dataframe(summary, use_container_width=True, hide_index=True)
+
+            records = []
+            for o in offers:
+                for r in o["Lignes"]:
+                    desc = clean(r["Désignation"])
+                    if any(w in desc.upper() for w in ["FRAIS DE PORT", "PORT SUR VENTE", "LIVRAISON STANDARD", "CARBURANT", "ECO-CONTRIBUTION"]):
+                        continue
+                    records.append({
+                        "Clé": comparison_key(desc),
+                        "Désignation": desc,
+                        "Fournisseur": o["Fournisseur"],
+                        "Quantité": float(r["Quantité"]),
+                        "Prix unitaire": float(r["Prix unitaire"]),
+                    })
+
+            if records:
+                rdf = pd.DataFrame(records)
+                groups = []
+                for key, g in rdf.groupby("Clé", sort=False):
+                    if not key or len(g["Fournisseur"].unique()) < 2:
+                        continue
+                    best = float(g["Prix unitaire"].min())
+                    for _, rr in g.sort_values("Prix unitaire").iterrows():
+                        diff = round(float(rr["Prix unitaire"]) - best, 4)
+                        pct = round((diff / best * 100), 1) if best else 0.0
+                        groups.append({
+                            "Article rapproché": key,
+                            "Fournisseur": rr["Fournisseur"],
+                            "Désignation fournisseur": rr["Désignation"],
+                            "Quantité": rr["Quantité"],
+                            "Prix unitaire": rr["Prix unitaire"],
+                            "Écart vs meilleur (€)": diff,
+                            "Écart vs meilleur (%)": pct,
+                            "Meilleur prix": "✅" if abs(diff) < 0.0001 else "",
+                        })
+
+                if groups:
+                    comp_df = pd.DataFrame(groups)
+                    st.subheader("Comparaison article par article")
+                    st.dataframe(comp_df, use_container_width=True, hide_index=True)
+
+                    savings = []
+                    for key, g in comp_df.groupby("Article rapproché", sort=False):
+                        best_rows = g[g["Meilleur prix"] == "✅"]
+                        other = g[g["Meilleur prix"] != "✅"]
+                        if not best_rows.empty and not other.empty:
+                            b = best_rows.iloc[0]
+                            worst = other.sort_values("Écart vs meilleur (€)", ascending=False).iloc[0]
+                            savings.append({
+                                "Article": key,
+                                "Meilleur fournisseur": b["Fournisseur"],
+                                "Meilleur PU": b["Prix unitaire"],
+                                "PU concurrent le + élevé": worst["Prix unitaire"],
+                                "Écart unitaire": worst["Écart vs meilleur (€)"],
+                                "Écart %": worst["Écart vs meilleur (%)"],
+                            })
+                    if savings:
+                        st.subheader("Points de négociation")
+                        st.dataframe(pd.DataFrame(savings), use_container_width=True, hide_index=True)
+
+                    out_cmp = io.BytesIO()
+                    with pd.ExcelWriter(out_cmp, engine="xlsxwriter") as writer:
+                        summary.to_excel(writer, index=False, sheet_name="Synthèse")
+                        comp_df.to_excel(writer, index=False, sheet_name="Comparatif")
+                        if savings:
+                            pd.DataFrame(savings).to_excel(writer, index=False, sheet_name="Négociation")
+                        wb = writer.book
+                        money_fmt = wb.add_format({"num_format": "0.00"})
+                        for ws in writer.sheets.values():
+                            ws.set_column("A:A", 30)
+                            ws.set_column("B:C", 28)
+                            ws.set_column("D:H", 20, money_fmt)
+                    out_cmp.seek(0)
+                    st.download_button(
+                        "⬇ Télécharger le comparatif Excel",
+                        data=out_cmp,
+                        file_name="Comparatif_fournisseurs.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary",
+                        use_container_width=True,
+                    )
+                else:
+                    st.warning("Aucun article équivalent n'a encore été rapproché entre ces devis.")
+            else:
+                st.warning("Aucune ligne exploitable pour la comparaison.")
+
+
 st.divider()
 with st.expander("Historique de contrôle", expanded=False):
     if st.session_state.history:
@@ -1030,4 +1289,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13.6</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14</div>', unsafe_allow_html=True)
