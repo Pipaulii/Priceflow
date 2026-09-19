@@ -187,6 +187,61 @@ def detect_total_ht(text):
 
     return None
 
+def detect_extra_charges(text):
+    """Retourne les frais complémentaires facturés séparément du prix des articles."""
+    charges = []
+    seen = set()
+
+    for raw in text.replace("\u00a0", " ").splitlines():
+        line = clean(raw)
+        low = line.lower()
+
+        label = None
+        if re.search(r"\b(?:eco|éco)\s*contribution\b", low):
+            label = "ÉCO-CONTRIBUTION"
+        elif re.search(r"\bsurcharge\s+[ée]nergie\b", low):
+            label = "SURCHARGE ÉNERGIE"
+        else:
+            continue
+
+        # Cas "Eco contribution : 2,45 EUR"
+        m = re.search(
+            r"(?:eco|éco)\s*contribution\s*(?:rep)?\s*[:.]?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\s*(?:eur|€)?",
+            line, flags=re.I
+        )
+        if label == "SURCHARGE ÉNERGIE":
+            m = re.search(
+                r"surcharge\s+[ée]nergie\s*[:.]?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\s*(?:eur|€)?",
+                line, flags=re.I
+            )
+
+        # Cas article ANCONETTI :
+        # "454 ECO CONTRIBUTION REP 1,000 PCE 0,04 0,04"
+        if label == "ÉCO-CONTRIBUTION" and not m:
+            m = re.search(
+                r"(?:eco|éco)\s*contribution(?:\s+rep)?\s+"
+                r"([0-9]+(?:[,.][0-9]+)?)\s+(?:PCE|ML|M|U|KG)\s+"
+                r"([0-9]+(?:[,.][0-9]{1,4})?)\s+"
+                r"([0-9]+(?:[,.][0-9]{1,4})?)",
+                line, flags=re.I
+            )
+            if m:
+                amount = fr_float(m.group(3))
+                key = (label, round(amount or 0, 4))
+                if amount is not None and key not in seen:
+                    seen.add(key)
+                    charges.append({"label": label, "amount": amount})
+                continue
+
+        if m:
+            amount = fr_float(m.group(1))
+            key = (label, round(amount or 0, 4))
+            if amount is not None and key not in seen:
+                seen.add(key)
+                charges.append({"label": label, "amount": amount})
+
+    return charges
+
 def strip_eco(desc):
     desc = re.split(r"\bDont\s+(?:éco|eco)[^\n]*", str(desc or ""), flags=re.I)[0]
     return clean(desc)
@@ -285,6 +340,7 @@ def extract_document(pdf_bytes):
         supplier = detect_supplier(text)
         number = detect_document_number(text, supplier)
         total_ht = detect_total_ht(text)
+        extra_charges = detect_extra_charges(text)
 
         rows = table_rows(pdf)
         # Certains fournisseurs ont des PDF sans tableau exploitable.
@@ -294,7 +350,7 @@ def extract_document(pdf_bytes):
                 rows = specific
 
         rows = dedupe(rows)
-        return rows, supplier, number, total_ht
+        return rows, supplier, number, total_ht, extra_charges
 
 def fmt_money(v):
     if v is None:
@@ -339,6 +395,22 @@ if uploaded:
                     "Prix unitaire": r.get("Prix unitaire"),
                 })
 
+            # Regroupe les frais complémentaires en une seule ligne Esabora.
+            # Exemple PUM : surcharge énergie + éco-contribution.
+            extras_total = round(sum(float(x["amount"]) for x in extra_charges), 2) if extra_charges else 0.0
+            if extras_total:
+                labels = {x["label"] for x in extra_charges}
+                if labels == {"ÉCO-CONTRIBUTION"}:
+                    extra_label = "ÉCO-CONTRIBUTION"
+                else:
+                    extra_label = "ÉCO-CONTRIBUTION / SURCHARGES"
+                export_rows.append({
+                    "Référence": "",
+                    "Désignation": extra_label,
+                    "Quantité": 1,
+                    "Prix unitaire": extras_total,
+                })
+
             df = pd.DataFrame(export_rows, columns=["Référence", "Désignation", "Quantité", "Prix unitaire"])
             df["Quantité"] = df["Quantité"].apply(lambda x: int(x) if pd.notna(x) and float(x).is_integer() else x)
 
@@ -360,13 +432,29 @@ if uploaded:
             ctrl2.metric("Total extrait", fmt_money(total_extrait))
             ctrl3.metric("Écart", fmt_money(ecart))
 
+            if extra_charges:
+                eco_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "ÉCO-CONTRIBUTION"), 2)
+                energy_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "SURCHARGE ÉNERGIE"), 2)
+                details = []
+                if eco_total:
+                    details.append(f"éco-contribution : {fmt_money(eco_total)}")
+                if energy_total:
+                    details.append(f"surcharge énergie : {fmt_money(energy_total)}")
+                st.info(
+                    f"♻️ Frais complémentaires détectés : {fmt_money(extras_total)} "
+                    f"({', '.join(details)}). Ils ont été regroupés en une seule ligne et ajoutés au fichier Excel."
+                )
+
             if ecart is not None:
                 if abs(ecart) <= 0.01:
-                    st.success("✅ Contrôle OK : le total extrait correspond au Total HT du BL.")
+                    st.success(
+                        f"✅ Total extrait après intégration : {fmt_money(total_extrait)} — "
+                        f"Écart : {fmt_money(ecart)}"
+                    )
                 else:
                     st.warning(
-                        f"⚠️ Écart détecté de {fmt_money(abs(ecart))}. "
-                        "Une ligne (éco-contribution, port, remise ou autre) peut manquer dans l'extraction."
+                        f"⚠️ Écart restant : {fmt_money(abs(ecart))}. "
+                        "Le document contient peut-être une autre ligne facturée, une remise ou un frais non encore détecté."
                     )
 
             st.success(f"{len(df)} ligne(s) article extraite(s)")
