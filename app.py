@@ -126,39 +126,65 @@ def detect_document_number(text, supplier):
     return "Non détecté"
 
 def detect_total_ht(text):
-    # Variantes fournisseurs : TOTAL HT, Total H.T., TOTAL H.T.., TOTAL H.T. :
-    # On exclut explicitement TTC, TVA et "hors écocontribution".
+    # Détection du Total HT quel que soit son emplacement sur la ligne.
+    # Compatible notamment : Outillage Méridional, First, Anconetti, MPS,
+    # Aredis, PUM et CEDEO.
     normalized = text.replace("\u00a0", " ")
-    patterns = [
-        r"(?im)^\s*TOTAL\s+H\s*\.?\s*T\s*\.?\s*[:.]*(?:\s*€)?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\b",
-        r"(?im)^\s*Total\s+HT\s*[:.]*(?:\s*€)?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\b",
-    ]
-    for pat in patterns:
-        for m in re.finditer(pat, normalized):
-            line_start = normalized.rfind("\n", 0, m.start()) + 1
-            line_end = normalized.find("\n", m.end())
-            if line_end == -1:
-                line_end = len(normalized)
-            line = normalized[line_start:line_end].lower()
-            if any(x in line for x in ["hors ecocontrib", "hors éco", "ttc", "tva"]):
-                continue
+    money = r"([0-9][0-9 .]*[,.][0-9]{2,4})"
+
+    for raw in normalized.splitlines():
+        line = clean(raw)
+        low = line.lower()
+
+        if not re.search(r"\btotal\s+h\s*\.?\s*t\s*\.?", low):
+            continue
+
+        # Ne jamais prendre un sous-total "hors écocontribution".
+        if any(x in low for x in [
+            "total ht hors ecocontrib",
+            "total ht hors éco",
+            "total h.t. hors ecocontrib",
+            "total h.t. hors éco"
+        ]):
+            continue
+
+        # Le libellé peut être au milieu de la ligne :
+        # "... Total HT 30.00" ou "... Port Total HT : 140,70 €"
+        m = re.search(
+            r"\btotal\s+h\s*\.?\s*t\s*\.?\s*[:.]?\s*(?:€\s*)?" + money,
+            line,
+            flags=re.I
+        )
+        if m:
             value = fr_float(m.group(1))
             if value is not None:
                 return value
 
-    # Secours si le libellé et le montant sont séparés par une mise en page PDF atypique.
+    # Secours : certains PDF placent le montant sur la ligne suivante.
     lines = [clean(x) for x in normalized.splitlines()]
     for i, line in enumerate(lines):
         low = line.lower()
-        if re.search(r"\btotal\s+h\s*\.?\s*t\s*\.?", low) and not any(x in low for x in ["hors ecocontrib", "hors éco", "ttc", "tva"]):
-            nums = re.findall(r"(?:\d{1,3}(?:[ .]\d{3})+|\d+)[,.]\d{2,4}", line)
+        if not re.search(r"\btotal\s+h\s*\.?\s*t\s*\.?", low):
+            continue
+        if any(x in low for x in ["hors ecocontrib", "hors éco"]):
+            continue
+
+        # Montant éventuel situé après le libellé, même avec texte parasite.
+        pos = re.search(r"\btotal\s+h\s*\.?\s*t\s*\.?", line, flags=re.I)
+        tail = line[pos.end():] if pos else ""
+        nums = re.findall(money, tail)
+        if nums:
+            value = fr_float(nums[0])
+            if value is not None:
+                return value
+
+        for nxt in lines[i + 1:i + 3]:
+            nums = re.findall(money, nxt)
             if nums:
-                return fr_float(nums[-1])
-            # Cherche dans les 2 lignes suivantes seulement.
-            for nxt in lines[i+1:i+3]:
-                nums = re.findall(r"(?:\d{1,3}(?:[ .]\d{3})+|\d+)[,.]\d{2,4}", nxt)
-                if nums:
-                    return fr_float(nums[0])
+                value = fr_float(nums[0])
+                if value is not None:
+                    return value
+
     return None
 
 def strip_eco(desc):
