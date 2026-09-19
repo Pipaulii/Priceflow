@@ -322,10 +322,9 @@ if uploaded:
     try:
         rows, supplier, doc_number, total_ht = extract_document(uploaded.getvalue())
 
-        info1, info2, info3 = st.columns(3)
+        info1, info2 = st.columns(2)
         info1.metric("Fournisseur", supplier)
         info2.metric("N° document", doc_number)
-        info3.metric("Total HT", fmt_money(total_ht))
 
         if rows:
             # Format d'import validé dans Esabora (Test 1).
@@ -342,6 +341,33 @@ if uploaded:
 
             df = pd.DataFrame(export_rows, columns=["Référence", "Désignation", "Quantité", "Prix unitaire"])
             df["Quantité"] = df["Quantité"].apply(lambda x: int(x) if pd.notna(x) and float(x).is_integer() else x)
+
+            # Contrôle comptable : comparaison du Total HT imprimé sur le BL
+            # avec la somme des lignes réellement extraites.
+            total_extrait = 0.0
+            for _, row in df.iterrows():
+                try:
+                    qte = float(row["Quantité"])
+                    pu = float(row["Prix unitaire"])
+                    total_extrait += qte * pu
+                except (TypeError, ValueError):
+                    pass
+            total_extrait = round(total_extrait, 2)
+            ecart = round(total_ht - total_extrait, 2) if total_ht is not None else None
+
+            ctrl1, ctrl2, ctrl3 = st.columns(3)
+            ctrl1.metric("Total HT du BL", fmt_money(total_ht))
+            ctrl2.metric("Total extrait", fmt_money(total_extrait))
+            ctrl3.metric("Écart", fmt_money(ecart))
+
+            if ecart is not None:
+                if abs(ecart) <= 0.01:
+                    st.success("✅ Contrôle OK : le total extrait correspond au Total HT du BL.")
+                else:
+                    st.warning(
+                        f"⚠️ Écart détecté de {fmt_money(abs(ecart))}. "
+                        "Une ligne (éco-contribution, port, remise ou autre) peut manquer dans l'extraction."
+                    )
 
             st.success(f"{len(df)} ligne(s) article extraite(s)")
             st.subheader("Aperçu avant export")
@@ -376,14 +402,16 @@ if uploaded:
                 use_container_width=True,
             )
 
-            signature = (uploaded.name, doc_number, len(df), total_ht)
+            signature = (uploaded.name, doc_number, len(df), total_ht, total_extrait)
             if st.session_state.saved_signature != signature:
                 entry = {
                     "Date": datetime.now().strftime("%d/%m/%Y %H:%M"),
                     "Fournisseur": supplier,
                     "N° document": doc_number,
                     "Lignes": len(df),
-                    "Total HT": fmt_money(total_ht),
+                    "Total HT BL": fmt_money(total_ht),
+                    "Total extrait": fmt_money(total_extrait),
+                    "Écart": fmt_money(ecart),
                     "Fichier": uploaded.name,
                 }
                 st.session_state.history.insert(0, entry)
