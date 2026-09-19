@@ -328,29 +328,42 @@ if uploaded:
         info3.metric("Total HT", fmt_money(total_ht))
 
         if rows:
+            # Format d'import validé dans Esabora (Test 1).
+            # Référence reste vide tant qu'elle n'est pas extraite du PDF :
+            # le N° document reste affiché dans l'application et dans l'historique.
+            export_rows = []
             for r in rows:
-                r["N° document"] = doc_number
+                export_rows.append({
+                    "Référence": "",
+                    "Désignation": str(r.get("Désignation", "") or ""),
+                    "Quantité": r.get("Quantité"),
+                    "Prix unitaire": r.get("Prix unitaire"),
+                })
 
-            df = pd.DataFrame(rows, columns=["N° document", "Désignation", "Quantité", "Prix unitaire"])
+            df = pd.DataFrame(export_rows, columns=["Référence", "Désignation", "Quantité", "Prix unitaire"])
             df["Quantité"] = df["Quantité"].apply(lambda x: int(x) if pd.notna(x) and float(x).is_integer() else x)
 
             st.success(f"{len(df)} ligne(s) article extraite(s)")
             st.subheader("Aperçu avant export")
             st.dataframe(df, use_container_width=True, hide_index=True)
 
+            # XlsxWriter écrit les chaînes dans sharedStrings.xml.
+            # C'est le format qui a été validé par le Test 1 dans l'import Esabora.
             output = io.BytesIO()
-            with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                df.to_excel(writer, index=False, sheet_name="Extraction")
-                ws = writer.book["Extraction"]
-                ws.freeze_panes = "A2"
-                ws.auto_filter.ref = ws.dimensions
-                widths = {"A": 20, "B": 62, "C": 14, "D": 18}
-                for col, width in widths.items():
-                    ws.column_dimensions[col].width = width
-                for cell in ws[1]:
-                    cell.font = cell.font.copy(bold=True)
-                for cell in ws["D"][1:]:
-                    cell.number_format = '#,##0.0000 [$€-fr-FR]'
+            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                df.to_excel(writer, index=False, sheet_name="Feuil1")
+                workbook = writer.book
+                ws = writer.sheets["Feuil1"]
+
+                text_fmt = workbook.add_format({"num_format": "@"})
+                qty_fmt = workbook.add_format({"num_format": "0.00"})
+                price_fmt = workbook.add_format({"num_format": "0.00"})
+
+                ws.set_column("A:A", 22, text_fmt)
+                ws.set_column("B:B", 62, text_fmt)
+                ws.set_column("C:C", 14, qty_fmt)
+                ws.set_column("D:D", 18, price_fmt)
+
             output.seek(0)
 
             safe_num = re.sub(r"[^A-Za-z0-9._-]+", "_", doc_number)
