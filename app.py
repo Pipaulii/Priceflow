@@ -549,15 +549,49 @@ def text_rows(text, supplier):
                 rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
 
     elif supplier == "PACK SERVICE":
+        # Le PDF contient beaucoup de nombres dans l'en-tête (téléphone, RIB, IBAN).
+        # On ne lit que la zone comprise entre l'en-tête du tableau articles
+        # et le récapitulatif NET H.T.
+        in_articles = False
         pat = re.compile(
-            r"^\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"
-            r"(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)?\s+\d+$",
+            r"^([A-Z0-9][A-Z0-9._/-]*)\s+(.+?)\s+"
+            r"(\d+(?:[.,]\d+)?)\s+"
+            r"(\d+(?:[.,]\d+)?)\s+"
+            r"(\d+(?:[.,]\d+)?)\s+(\d+)$",
             re.I
         )
         for line in lines:
+            up = line.upper()
+            if "RÉFÉRENCE" in up and "DÉSIGNATION" in up and ("QTÉ" in up or "QTE" in up):
+                in_articles = True
+                continue
+            if in_articles and ("NET H.T." in up or "TOTAL DEVIS HT" in up):
+                break
+            if not in_articles:
+                continue
+
             m = pat.match(line)
-            if m:
-                rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+            if not m:
+                continue
+
+            reference = clean(m.group(1))
+            desc = clean(m.group(2))
+            qty = fr_float(m.group(3))
+            pu = fr_float(m.group(4))
+            montant = fr_float(m.group(5))
+
+            # Contrôle de cohérence : quantité × PU doit correspondre au montant net imprimé.
+            if qty is None or pu is None or montant is None:
+                continue
+            if abs((qty * pu) - montant) > max(0.08, abs(montant) * 0.002):
+                continue
+
+            rows.append({
+                "Référence": reference,
+                "Désignation": desc,
+                "Quantité": qty,
+                "Prix unitaire": pu
+            })
 
     elif supplier == "FRITEC":
         # Ligne d'entête article : position, quantité, unité, référence, PU, date.
@@ -1240,8 +1274,6 @@ with tab_compare:
 
                 if groups:
                     comp_df = pd.DataFrame(groups)
-                    st.subheader("Comparaison article par article")
-                    st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
                     savings = []
                     for key, g in comp_df.groupby("Article rapproché", sort=False):
@@ -1249,25 +1281,58 @@ with tab_compare:
                         other = g[g["Meilleur prix"] != "✅"]
                         if not best_rows.empty and not other.empty:
                             b = best_rows.iloc[0]
-                            worst = other.sort_values("Écart vs meilleur (€)", ascending=False).iloc[0]
+                            # Pour une lecture simple, on compare le meilleur prix au concurrent
+                            # le plus cher présent pour la même famille d'article.
+                            worst = other.sort_values("Prix unitaire", ascending=False).iloc[0]
+                            qty = float(b["Quantité"])
+                            unit_gap = round(float(worst["Prix unitaire"]) - float(b["Prix unitaire"]), 2)
+                            total_gap = round(unit_gap * qty, 2)
+                            pct_gap = round((unit_gap / float(b["Prix unitaire"]) * 100), 1) if float(b["Prix unitaire"]) else 0.0
                             savings.append({
                                 "Article": key,
-                                "Meilleur fournisseur": b["Fournisseur"],
-                                "Meilleur PU": b["Prix unitaire"],
-                                "PU concurrent le + élevé": worst["Prix unitaire"],
-                                "Écart unitaire": worst["Écart vs meilleur (€)"],
-                                "Écart %": worst["Écart vs meilleur (%)"],
+                                "Qté": qty,
+                                "🟢 Meilleur fournisseur": b["Fournisseur"],
+                                "Meilleur PU": float(b["Prix unitaire"]),
+                                "Autre fournisseur": worst["Fournisseur"],
+                                "Autre PU": float(worst["Prix unitaire"]),
+                                "Écart / unité": unit_gap,
+                                "Écart %": pct_gap,
+                                "💰 Écart total": total_gap,
                             })
+
                     if savings:
-                        st.subheader("Points de négociation")
-                        st.dataframe(pd.DataFrame(savings), use_container_width=True, hide_index=True)
+                        nego_df = pd.DataFrame(savings)
+                        potential = round(float(nego_df["💰 Écart total"].sum()), 2)
+                        st.success(
+                            f"💰 Économie potentielle sur les articles comparables : "
+                            f"{potential:,.2f} €".replace(",", " ").replace(".", ",")
+                        )
+                        st.subheader("Comparatif simplifié")
+                        st.dataframe(
+                            nego_df,
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config={
+                                "Meilleur PU": st.column_config.NumberColumn(format="%.2f €"),
+                                "Autre PU": st.column_config.NumberColumn(format="%.2f €"),
+                                "Écart / unité": st.column_config.NumberColumn(format="+%.2f €"),
+                                "Écart %": st.column_config.NumberColumn(format="+%.1f %%"),
+                                "💰 Écart total": st.column_config.NumberColumn(format="+%.2f €"),
+                            },
+                        )
+
+                        with st.expander("Voir le détail complet"):
+                            st.dataframe(comp_df, use_container_width=True, hide_index=True)
+                    else:
+                        nego_df = pd.DataFrame()
+                        st.info("Aucun article comparable trouvé entre plusieurs fournisseurs.")
 
                     out_cmp = io.BytesIO()
                     with pd.ExcelWriter(out_cmp, engine="xlsxwriter") as writer:
                         summary.to_excel(writer, index=False, sheet_name="Synthèse")
                         comp_df.to_excel(writer, index=False, sheet_name="Comparatif")
                         if savings:
-                            pd.DataFrame(savings).to_excel(writer, index=False, sheet_name="Négociation")
+                            nego_df.to_excel(writer, index=False, sheet_name="Négociation")
                         wb = writer.book
                         money_fmt = wb.add_format({"num_format": "0.00"})
                         for ws in writer.sheets.values():
@@ -1307,4 +1372,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14.1</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14.2</div>', unsafe_allow_html=True)
