@@ -535,6 +535,16 @@ def extract_pdf_text(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         return "\n".join((page.extract_text() or "") for page in pdf.pages)
 
+def fmt_money(value):
+    """Affiche un montant au format français."""
+    if value is None:
+        return "Non détecté"
+    try:
+        return f"{float(value):,.2f} €".replace(",", "X").replace(".", ",").replace("X", " ")
+    except (TypeError, ValueError):
+        return "Non détecté"
+
+
 def rental_supplier(text):
     low = text.lower()
     if "loxam" in low and "offre de location" in low:
@@ -753,11 +763,33 @@ with tab_achats:
                         "Prix unitaire": r.get("Prix unitaire"),
                     })
 
-                # Regroupe les frais complémentaires en une seule ligne Esabora.
-                # Exemple PUM : surcharge énergie + éco-contribution.
-                extras_total = round(sum(float(x["amount"]) for x in extra_charges), 2) if extra_charges else 0.0
+                # N'ajoute les frais complémentaires que s'ils ne sont PAS déjà
+                # inclus dans les prix unitaires des articles.
+                # Exemple CLIM+ : les lignes "Dont éco-contribution" sont informatives
+                # et les PU articles donnent déjà exactement le Total HT.
+                articles_total = round(sum(
+                    float(r.get("Quantité", 0) or 0) * float(r.get("Prix unitaire", 0) or 0)
+                    for r in export_rows
+                ), 2)
+
+                charges_to_add = list(extra_charges)
+                if total_ht is not None:
+                    gap_before_extras = round(float(total_ht) - articles_total, 2)
+                    detected_extras = round(sum(float(x["amount"]) for x in extra_charges), 2) if extra_charges else 0.0
+
+                    # Si les articles atteignent déjà le Total HT, l'éco-contribution
+                    # est déjà comprise dans les PU : ne pas la rajouter une 2e fois.
+                    if abs(gap_before_extras) <= 0.01:
+                        charges_to_add = []
+                    # Si les frais détectés correspondent exactement à l'écart,
+                    # on les ajoute normalement (PUM, ANCONETTI, etc.).
+                    elif detected_extras and abs(gap_before_extras - detected_extras) <= 0.02:
+                        charges_to_add = list(extra_charges)
+
+                # Regroupe les frais réellement à ajouter en une seule ligne Esabora.
+                extras_total = round(sum(float(x["amount"]) for x in charges_to_add), 2) if charges_to_add else 0.0
                 if extras_total:
-                    labels = {x["label"] for x in extra_charges}
+                    labels = {x["label"] for x in charges_to_add}
                     if labels == {"ÉCO-CONTRIBUTION"}:
                         extra_label = "ÉCO-CONTRIBUTION"
                     else:
@@ -801,6 +833,11 @@ with tab_achats:
                     st.info(
                         f"♻️ Frais complémentaires détectés : {fmt_money(extras_total)} "
                         f"({', '.join(details)}). Ils ont été regroupés en une seule ligne et ajoutés au fichier Excel."
+                    )
+                elif extra_charges and not charges_to_add:
+                    st.info(
+                        "♻️ Éco-contribution détectée, mais déjà incluse dans les prix unitaires des articles. "
+                        "Elle n'est pas ajoutée une seconde fois dans l'Excel."
                     )
 
                 if ecart is not None:
@@ -989,4 +1026,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13.3</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13.5</div>', unsafe_allow_html=True)
