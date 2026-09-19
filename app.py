@@ -397,14 +397,37 @@ def text_rows(text, supplier):
             if m:
                 rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
 
-    elif supplier == "MPS":
+    elif supplier in ("MPS", "PROLIANS"):
+        # Gabarit Descours & Cabaud :
+        # référence / quantité / unité / PU / ... / prix net / montant net.
+        # On exige un PU strictement positif pour éviter les nombres parasites
+        # présents dans les adresses, téléphones et codes du PDF.
         for i, line in enumerate(lines):
-            m = re.match(r"^\d+\s+(\d+(?:[.,]\d+)?)\s+\w\s+(\d+(?:[.,]\d+)?)\b", line)
-            if m and i > 0:
-                desc = lines[i - 1]
-                desc = re.sub(r"\s+F\d+$", "", desc).strip()
-                if desc and not re.match(r"^\d", desc):
-                    rows.append({"Désignation": desc, "Quantité": fr_float(m.group(1)), "Prix unitaire": fr_float(m.group(2))})
+            m = re.match(
+                r"^(\d{5,})\s+(\d+(?:[.,]\d+)?)\s+"
+                r"(?:P|K|T|I|M|S|F|D|C|R)\s+"
+                r"(\d+(?:[.,]\d+)?)\b",
+                line,
+                re.I
+            )
+            if not m or i == 0:
+                continue
+
+            qty = fr_float(m.group(2))
+            pu = fr_float(m.group(3))
+            if qty is None or pu is None or qty <= 0 or pu <= 0:
+                continue
+
+            desc = re.sub(r"\s+F\d+$", "", lines[i - 1]).strip()
+            if not desc or re.match(r"^\d", desc):
+                continue
+
+            rows.append({
+                "Référence": m.group(1),
+                "Désignation": desc,
+                "Quantité": qty,
+                "Prix unitaire": pu
+            })
 
     elif supplier == "ALDES":
         # Ex. 10 11052278 SR 135 D125 S/E ACOUS RAL9003 1,00 PC 10 10,36 10,36 4 à 5 jrs
@@ -1303,8 +1326,9 @@ with tab_compare:
                 rdf = pd.DataFrame(records)
                 groups = []
                 for key, g in rdf.groupby("Clé", sort=False):
-                    if not key or len(g["Fournisseur"].unique()) < 2:
+                    if not key:
                         continue
+                    multi_supplier = len(g["Fournisseur"].unique()) >= 2
                     best = float(g["Prix unitaire"].min())
                     for _, rr in g.sort_values("Prix unitaire").iterrows():
                         diff = round(float(rr["Prix unitaire"]) - best, 4)
@@ -1315,9 +1339,9 @@ with tab_compare:
                             "Désignation fournisseur": rr["Désignation"],
                             "Quantité": rr["Quantité"],
                             "Prix unitaire": rr["Prix unitaire"],
-                            "Écart vs meilleur (€)": diff,
-                            "Écart vs meilleur (%)": pct,
-                            "Meilleur prix": "✅" if abs(diff) < 0.0001 else "",
+                            "Écart vs meilleur (€)": diff if multi_supplier else 0.0,
+                            "Écart vs meilleur (%)": pct if multi_supplier else 0.0,
+                            "Meilleur prix": ("✅" if abs(diff) < 0.0001 else "") if multi_supplier else "Seul prix",
                         })
 
                 if groups:
@@ -1325,6 +1349,8 @@ with tab_compare:
 
                     savings = []
                     for key, g in comp_df.groupby("Article rapproché", sort=False):
+                        if g["Fournisseur"].nunique() < 2:
+                            continue
                         best_rows = g[g["Meilleur prix"] == "✅"]
                         other = g[g["Meilleur prix"] != "✅"]
                         if not best_rows.empty and not other.empty:
@@ -1375,6 +1401,13 @@ with tab_compare:
                         nego_df = pd.DataFrame()
                         st.info("Aucun article comparable trouvé entre plusieurs fournisseurs.")
 
+                    solo_count = int((comp_df["Meilleur prix"] == "Seul prix").sum())
+                    if solo_count:
+                        st.caption(
+                            f"{solo_count} ligne(s) sans concurrent direct sont quand même conservées "
+                            "dans le détail complet et dans l'Excel comparatif."
+                        )
+
                     out_cmp = io.BytesIO()
                     with pd.ExcelWriter(out_cmp, engine="xlsxwriter") as writer:
                         summary.to_excel(writer, index=False, sheet_name="Synthèse")
@@ -1420,4 +1453,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14.3</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14.5</div>', unsafe_allow_html=True)
