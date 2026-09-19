@@ -529,6 +529,13 @@ def text_rows(text, supplier):
             if m and not line.upper().startswith("EAN13"):
                 rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
 
+        # Page 2 : frais de port et éco-contribution font partie du Total HT.
+        if re.search(r"PORT SUR VENTE\s+9915001M\s+1\s+300[,.]00", text, re.I):
+            rows.append({"Désignation": "FRAIS DE PORT", "Quantité": 1.0, "Prix unitaire": 300.0})
+        m_eco = re.search(r"Eco-contribution\s*:\s*(\d+(?:[.,]\d+)?)\s*EUR", text, re.I)
+        if m_eco:
+            rows.append({"Désignation": "ÉCO-CONTRIBUTION", "Quantité": 1.0, "Prix unitaire": fr_float(m_eco.group(1))})
+
     elif supplier == "RODACLIM":
         pat = re.compile(
             r"^\S+\s+(.+?)\s+(?:Pièce|Piece|PCE|U)\s+"
@@ -621,6 +628,17 @@ def extract_document(pdf_bytes):
         # (notamment lors d'un passage de page).
         if supplier != "AREDIS":
             rows = dedupe(rows)
+
+        if supplier == "RICHARDSON" and total_ht is not None:
+            extracted = round(sum(float(r["Quantité"]) * float(r["Prix unitaire"]) for r in rows), 2)
+            missing = round(float(total_ht) - extracted, 2)
+            eco_prices = [
+                round(float(r["Prix unitaire"]), 2)
+                for r in rows
+                if "ECOPARTICIPATION" in clean(r["Désignation"]).upper()
+            ]
+            if missing > 0 and missing in eco_prices:
+                rows.append({"Désignation": "ECOPARTICIPATION", "Quantité": 1.0, "Prix unitaire": missing})
 
         return rows, supplier, number, total_ht, extra_charges
 
@@ -1289,4 +1307,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14.1</div>', unsafe_allow_html=True)
