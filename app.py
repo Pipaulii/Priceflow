@@ -91,15 +91,40 @@ def extract_document(pdf_bytes):
                 for r in table[header_idx + 1:]:
                     if not r or max(dcol, qcol, pcol) >= len(r):
                         continue
-                    desc = clean_desc(str(r[dcol] or "").replace("\n", " "))
+                    raw_desc = str(r[dcol] or "").replace("\n", " ")
+                    # Certains articles contiennent une 2e ligne "Dont Eco-Part..." dans
+                    # la même cellule. Ce n'est pas une ligne séparée : on conserve
+                    # l'article et on retire seulement la mention d'éco-contribution.
+                    raw_desc = re.split(r"\\bDont\\s+(?:Eco|Éco)-?Part", raw_desc, flags=re.I)[0]
+                    desc = clean_desc(raw_desc)
                     qty = fr_float(r[qcol])
                     pu = fr_float(r[pcol])
                     low = desc.lower()
                     if not desc or qty is None or pu is None:
                         continue
-                    if any(x in low for x in ["total ", "dont eco", "dont éco", "transformé de", "reference gaz", "référence gaz"]):
+                    if any(x in low for x in ["total ", "transformé de", "reference gaz", "référence gaz"]):
                         continue
                     rows.append({"Désignation": desc, "Quantité": qty, "Prix unitaire": pu})
+
+            # Détection robuste du Total HT dans les tableaux de synthèse.
+            # Sur certains BL, le libellé et le montant sont dans des cellules séparées,
+            # donc extract_text() ne les place pas forcément sur la même ligne.
+            for table in tables:
+                for r in table or []:
+                    if not r:
+                        continue
+                    for j, cell in enumerate(r):
+                        cell_text = str(cell or "")
+                        labels = [x.strip() for x in cell_text.split("\n")]
+                        if "Total HT" in labels:
+                            # Cherche le montant dans les cellules suivantes de la ligne.
+                            for value_cell in r[j + 1:]:
+                                values = re.findall(r"(?:\\d{1,3}(?:[ .]\\d{3})+|\\d+)[,.]\\d{2,4}", str(value_cell or ""))
+                                if values:
+                                    value = fr_float(values[0])
+                                    if value is not None:
+                                        total_candidates.append((4, value, "Total HT"))
+                                        break
 
             # Secours pour les PDF dont les tableaux ne sont pas détectés.
             if not tables:
@@ -133,11 +158,9 @@ if files:
         try:
             extracted, bl_total, bl_total_label = extract_document(f.getvalue())
             all_rows.extend(extracted)
-            calc_total = sum(float(r["Quantité"]) * float(r["Prix unitaire"]) for r in extracted)
             doc_results.append({
                 "Fichier": f.name,
                 "Lignes": len(extracted),
-                "Total calculé": calc_total,
                 "Total BL": bl_total,
                 "Libellé total": bl_total_label,
             })
@@ -178,22 +201,16 @@ if files:
             )
 
         with right:
-            st.markdown("### Contrôle du total")
+            st.markdown("### Total du BL")
             for result in doc_results:
                 st.markdown(f"**{result['Fichier']}**")
-                st.metric("Total calculé", f"{result['Total calculé']:,.2f} €".replace(",", " "))
                 if result["Total BL"] is not None:
-                    delta = result["Total calculé"] - result["Total BL"]
-                    st.metric("Total détecté sur le BL", f"{result['Total BL']:,.2f} €".replace(",", " "))
-                    if abs(delta) <= 0.02:
-                        st.success("✓ Les totaux correspondent")
-                    else:
-                        st.warning(f"Écart : {delta:+,.2f} €".replace(",", " "))
+                    st.metric("TOTAL HT", f"{result['Total BL']:,.2f} €".replace(",", " "))
                 else:
-                    st.info("Total du BL non détecté automatiquement")
+                    st.info("Total HT du BL non détecté automatiquement")
 
         # Une entrée par traitement, conservée pendant la session Streamlit.
-        signature = tuple((r["Fichier"], r["Lignes"], round(r["Total calculé"], 4), r["Total BL"]) for r in doc_results)
+        signature = tuple((r["Fichier"], r["Lignes"], r["Total BL"]) for r in doc_results)
         if st.session_state.get("last_history_signature") != signature:
             now = datetime.now().strftime("%d/%m/%Y %H:%M")
             for result in doc_results:
@@ -201,8 +218,7 @@ if files:
                     "Date": now,
                     "Fichier": result["Fichier"],
                     "Lignes": result["Lignes"],
-                    "Total calculé": f"{result['Total calculé']:,.2f} €".replace(",", " "),
-                    "Total BL": "—" if result["Total BL"] is None else f"{result['Total BL']:,.2f} €".replace(",", " "),
+                    "Total HT BL": "—" if result["Total BL"] is None else f"{result['Total BL']:,.2f} €".replace(",", " "),
                 })
             st.session_state.last_history_signature = signature
 
