@@ -664,6 +664,7 @@ def new_document():
 tab_achats, tab_location = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations"])
 
 with tab_achats:
+    st.subheader("📦 Achats / Fournisseurs")
 
     top1, top2 = st.columns([5, 1])
     with top2:
@@ -817,7 +818,6 @@ with tab_achats:
 
 with tab_location:
     st.subheader("🏗️ Locations")
-    st.caption("Moteur indépendant pour LOXAM, ACTIS Location et Accès Industrie.")
 
     if "location_uploader_key" not in st.session_state:
         st.session_state.location_uploader_key = 0
@@ -935,4 +935,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13.2</div>', unsafe_allow_html=True)
