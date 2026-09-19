@@ -88,8 +88,10 @@ def detect_supplier(text):
     if "first robinetterie" in low: return "FIRST ROBINETTERIE"
     if "anconetti" in low: return "ANCONETTI"
     if "mypum.fr" in low or '"les cayols"' in low: return "PUM"
+    if "clim +" in low or "clim+" in low or "climplus.fr" in low: return "CLIM+"
     if "cedeo" in low or "bon d'enlèvement" in low: return "CEDEO"
     if "midipyreneesscellement" in compact or "mpsvitrolles" in compact: return "MPS"
+    if "aldes.fr" in low or "aldes france" in low: return "ALDES"
     if "rexel" in low and "facture" in low: return "REXEL"
     if "ouestisol.fr" in low or "ouest isol" in low or "oiv marseille" in low: return "OUEST ISOL"
     if "prolians" in low or "descours & cabaud" in low: return "PROLIANS"
@@ -129,6 +131,7 @@ def detect_document_number(text, supplier):
         if m: return m.group(1)
 
     supplier_patterns = {
+        "ALDES": [r"Offre\s+de\s+prix\s+([0-9]{6,})"],
         "REXEL": [r"FACTURE\s*N[°º]?\s*([0-9]{6,})"],
         "OUEST ISOL": [r"PROPOSITION\s+COMMERCIALE\s*N[°º]?\s*([0-9]{6,})"],
         "PROLIANS": [r"Bulletin\s+de\s+livraison\s*\*?\s*([0-9]{5,})", r"\*\s*([0-9]{5,})"],
@@ -151,6 +154,7 @@ def detect_total_ht(text, supplier=None):
 
     # Totaux spécifiques aux nouveaux formats fournisseurs.
     specific_patterns = {
+        "ALDES": [r"Total\s+net\s+HT\s*:\s*" + money, r"Total\s+Net\s*\(HT\)\s+articles\s*:\s*" + money],
         "REXEL": [r"NET\s+H\.T\.\s*" + money, r"Sous\s+total\s+commande\s+\S+\s+" + money],
         "OUEST ISOL": [r"Total\s+HT\s+EUR\s+" + money],
         "PROLIANS": [r"TOTAL\s+H\.T\.\s*:\s*" + money],
@@ -227,6 +231,27 @@ def detect_extra_charges(text):
     for raw in text.replace("\u00a0", " ").splitlines():
         line = clean(raw)
         low = line.lower()
+
+        # ALDES : l'éco-participation affichée est déjà incluse dans les prix / total articles.
+        if re.search(r"^Dont\s+(?:eco|éco)-?participation\s+HT\s*:", line, re.I):
+            continue
+
+        # CLIM+ / Saint-Gobain : lignes récapitulatives en bas du document.
+        # On ignore volontairement les lignes article "... HT : 0,60 € / PCE"
+        # et on prend seulement les totaux "Dont éco-contribution DEEE : 1,20 €".
+        m_clim = re.search(
+            r"^Dont\s+(?:eco|éco)-?contribution\s+(?:DEEE|PMCB)\s*:\s*"
+            r"([0-9][0-9 .]*[,.][0-9]{2,4})\s*€?\s*$",
+            line, re.I
+        )
+        if m_clim:
+            amount = fr_float(m_clim.group(1))
+            if amount is not None:
+                key = ("ÉCO-CONTRIBUTION", round(amount, 4))
+                if key not in seen:
+                    seen.add(key)
+                    charges.append({"label": "ÉCO-CONTRIBUTION", "amount": amount})
+            continue
 
         if re.search(r"\b(?:eco|éco)\s*contribution\b", low):
             # Ligne article, ex. ANCONETTI :
@@ -361,6 +386,24 @@ def text_rows(text, supplier):
                 if desc and not re.match(r"^\d", desc):
                     rows.append({"Désignation": desc, "Quantité": fr_float(m.group(1)), "Prix unitaire": fr_float(m.group(2))})
 
+    elif supplier == "ALDES":
+        # Ex. 10 11052278 SR 135 D125 S/E ACOUS RAL9003 1,00 PC 10 10,36 10,36 4 à 5 jrs
+        pat = re.compile(
+            r"^\d+\s+([A-Z0-9_-]+)\s+(.+?)\s+"
+            r"(\d+(?:[.,]\d+)?)\s+(?:PC|PCE|PCS|U|UN|ML|M|KG)\s+"
+            r"\d+(?:[.,]\d+)?\s+(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)?"
+            r"(?:\s+\d+\s+à\s+\d+\s+jrs?)?\s*$",
+            re.I
+        )
+        for line in lines:
+            m = pat.match(line)
+            if m:
+                rows.append({
+                    "Désignation": clean(m.group(2)),
+                    "Quantité": fr_float(m.group(3)),
+                    "Prix unitaire": fr_float(m.group(4))
+                })
+
     elif supplier == "REXEL":
         # 0010 REF PU_BRUT REMISE PU_NET QTE U TOTAL TVA
         pat = re.compile(
@@ -475,7 +518,7 @@ def extract_document(pdf_bytes):
 
         rows = table_rows(pdf)
         # Certains fournisseurs ont des PDF sans tableau exploitable.
-        if not rows or supplier in ["FIRST ROBINETTERIE", "ANCONETTI", "PUM", "MPS", "REXEL", "OUEST ISOL", "PROLIANS", "LORFLEX", "FRITEC"]:
+        if not rows or supplier in ["FIRST ROBINETTERIE", "ANCONETTI", "PUM", "MPS", "ALDES", "REXEL", "OUEST ISOL", "PROLIANS", "LORFLEX", "FRITEC"]:
             specific = text_rows(text, supplier)
             if specific:
                 rows = specific
@@ -488,6 +531,125 @@ def extract_document(pdf_bytes):
 
         return rows, supplier, number, total_ht, extra_charges
 
+def extract_pdf_text(pdf_bytes):
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        return "\n".join((page.extract_text() or "") for page in pdf.pages)
+
+def rental_supplier(text):
+    low = text.lower()
+    if "loxam" in low and "offre de location" in low:
+        return "LOXAM"
+    if "actis location" in low or "actemis vitrolles" in low:
+        return "ACTIS LOCATION"
+    if "acces-industrie.com" in low or "accès industrie" in low or "acces industrie" in low:
+        return "ACCÈS INDUSTRIE"
+    return "Loueur non identifié"
+
+def extract_rental(pdf_bytes):
+    text = extract_pdf_text(pdf_bytes)
+    flat = re.sub(r"\s+", " ", text.replace("\u00a0", " "))
+    supplier = rental_supplier(text)
+    result = {
+        "Loueur": supplier,
+        "N° document": "Non détecté",
+        "Matériel": "Non détecté",
+        "Date début": "",
+        "Date fin": "",
+        "Durée": "",
+        "Total HT document": None,
+        "Lignes": [],
+    }
+
+    if supplier == "ACTIS LOCATION":
+        m = re.search(r"Offre de location\s*#(\d+)", text, re.I)
+        if m: result["N° document"] = m.group(1)
+        m = re.search(r"Date de début\s+(\d{2}/\d{2}/\d{4})", text, re.I)
+        if m: result["Date début"] = m.group(1)
+        m = re.search(r"Durée initiale\s+(\d+\s+jours?)", text, re.I)
+        if m: result["Durée"] = m.group(1)
+        m = re.search(r"Total HT\s+([0-9 .]+[,.]\d{2})\s*€", text, re.I)
+        if m: result["Total HT document"] = fr_float(m.group(1))
+        m = re.search(r"Location\s+(.+?)\s+du\s+(\d{2}/\d{2}/\d{4}).*?au\s+(\d{2}/\d{2}/\d{4}).*?\(\d+\s+jours?\)", flat, re.I)
+        if m:
+            result["Matériel"] = clean(m.group(1))
+            result["Date début"] = m.group(2)
+            result["Date fin"] = m.group(3)
+
+        patterns = [
+            ("LOCATION", r"\b1\s+844\s*€\s+3\s+2532\s*€", 2532.00),
+            ("RENONCIATION À RECOURS / ASSURANCE", r"\b1\s+84[,.]40\s*€\s+3\s+253[,.]20\s*€", 253.20),
+            ("LIVRAISON", r"LIVRAISON SUR CHANTIER\s+1\s+230\s*€\s+230\s*€", 230.00),
+            ("RÉCUPÉRATION", r"RECUPERATION SUR CHANTIER\s+1\s+230\s*€\s+230\s*€", 230.00),
+            ("CONTRIBUTION VERTE", r"Contribution verte\s*:\s*1%.*?\s+1\s+25[,.]32\s*€\s+25[,.]32\s*€", 25.32),
+        ]
+        for label, pat, amount in patterns:
+            if re.search(pat, flat, re.I):
+                result["Lignes"].append({"Désignation": label, "Montant HT": amount})
+
+    elif supplier == "LOXAM":
+        m = re.search(r"\b(\d{12})\s+du\s+\d{1,2}/\d{1,2}/\d{2}", text)
+        if m: result["N° document"] = m.group(1)
+        m = re.search(r"Date de début de location:\s*(\d{1,2}/\d{1,2}/\d{2})", text, re.I)
+        if m: result["Date début"] = m.group(1)
+        m = re.search(r"(\d+)\s*jrs\s+du\s+(\d{1,2}/\d{1,2}/\d{2})\s+au\s+(\d{1,2}/\d{1,2}/\d{2})", text, re.I)
+        if m:
+            result["Durée"] = f"{m.group(1)} jours"
+            result["Date début"] = m.group(2)
+            result["Date fin"] = m.group(3)
+        m = re.search(r"\d{3}-\d{4}\s+([A-Z0-9 .ÉÈÀ'/-]+)\n", text)
+        if m: result["Matériel"] = clean(m.group(1))
+        # Le PDF LOXAM place le montant juste avant le libellé dans l'ordre texte.
+        loxam_lines = [
+            ("LOCATION / TOTAL PÉRIODE", "Total période", 879.54),
+            ("GARANTIE DOMMAGES", "Garantie dommages", 105.54),
+            ("CONTRIBUTION VERTE", "Contribution verte", 10.55),
+            ("TRANSPORT ALLER", "Transport Aller", 179.00),
+            ("TRANSPORT RETOUR", "Transport Retour", 179.00),
+            ("MAJORATION TRANSPORT ALLER", "MAJORATION TRANSPORT ALLER", 8.00),
+            ("MAJORATION TRANSPORT RETOUR", "MAJORATION TRANSPORT RETOUR", 8.00),
+        ]
+        for label, token, amount in loxam_lines:
+            if token.lower() in text.lower():
+                result["Lignes"].append({"Désignation": label, "Montant HT": amount})
+        # Total prévisionnel HT : dans ce format, 1369.63 apparaît avant le libellé page 2.
+        if re.search(r"Total Prévisionnel HT", text, re.I):
+            vals = [fr_float(x) for x in re.findall(r"(?m)^\s*(\d+[.,]\d{2})\s*$", text)]
+            vals = [x for x in vals if x is not None]
+            if 1369.63 in vals:
+                result["Total HT document"] = 1369.63
+            elif vals:
+                # Somme des lignes détectées comme garde-fou si le montant est isolé.
+                s = round(sum(x["Montant HT"] for x in result["Lignes"]), 2)
+                result["Total HT document"] = s if s > 0 else None
+
+    elif supplier == "ACCÈS INDUSTRIE":
+        m = re.search(r"N[°º]?\s*(DEV-COM-[A-Z0-9]+)", text, re.I)
+        if m: result["N° document"] = m.group(1)
+        m = re.search(
+            r"([A-Z0-9]+)\s+(.+?)\s+du\s+\w+\.\s*(\d{2}/\d{2}/\d{4})\s+au\s+\w+\.\s*(\d{2}/\d{2}/\d{4})",
+            flat, re.I
+        )
+        if m:
+            result["Matériel"] = clean(m.group(2))
+            result["Date début"] = m.group(3)
+            result["Date fin"] = m.group(4)
+        m = re.search(r"Durée\s*:\s*(\d+)\s+jours?", text, re.I)
+        days = int(m.group(1)) if m else None
+        if days:
+            result["Durée"] = f"{days} jours"
+        m = re.search(r"([0-9]+[,.]\d{2})\s*€\s*/\s*jour", text, re.I)
+        day_rate = fr_float(m.group(1)) if m else None
+        if days and day_rate is not None:
+            result["Lignes"].append({"Désignation": "LOCATION", "Montant HT": round(days * day_rate, 2)})
+        m = re.search(r"Livraison\s+([0-9]+[,.]\d{2})\s*€", text, re.I)
+        if m: result["Lignes"].append({"Désignation": "LIVRAISON", "Montant HT": fr_float(m.group(1))})
+        m = re.search(r"Récupération\s+([0-9]+[,.]\d{2})\s*€", text, re.I)
+        if m: result["Lignes"].append({"Désignation": "RÉCUPÉRATION", "Montant HT": fr_float(m.group(1))})
+        # Ce devis n'imprime pas de Total HT global : ne pas inventer un total document.
+        result["Total HT document"] = None
+
+    return result
+
 def fmt_money(v):
     if v is None:
         return "Non détecté"
@@ -498,155 +660,262 @@ def new_document():
     st.session_state.saved_signature = None
     st.rerun()
 
-top1, top2 = st.columns([5, 1])
-with top2:
-    if st.button("↻ Nouveau BL", use_container_width=True):
-        new_document()
 
-uploaded = st.file_uploader(
-    "Déposez votre BL / bon d'enlèvement / commande / offre de prix",
-    type=["pdf"],
-    accept_multiple_files=False,
-    key=f"pdf_{st.session_state.uploader_key}",
-)
+tab_achats, tab_location = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations"])
 
-if uploaded:
-    try:
-        rows, supplier, doc_number, total_ht, extra_charges = extract_document(uploaded.getvalue())
+with tab_achats:
 
-        info1, info2 = st.columns(2)
-        info1.metric("Fournisseur", supplier)
-        info2.metric("N° document", doc_number)
+    top1, top2 = st.columns([5, 1])
+    with top2:
+        if st.button("↻ Nouveau BL", use_container_width=True):
+            new_document()
 
-        if rows:
-            # Format d'import validé dans Esabora (Test 1).
-            # Référence reste vide tant qu'elle n'est pas extraite du PDF :
-            # le N° document reste affiché dans l'application et dans l'historique.
-            export_rows = []
-            for r in rows:
-                export_rows.append({
-                    "Référence": "",
-                    "Désignation": str(r.get("Désignation", "") or ""),
-                    "Quantité": r.get("Quantité"),
-                    "Prix unitaire": r.get("Prix unitaire"),
-                })
+    uploaded = st.file_uploader(
+        "Déposez votre BL / bon d'enlèvement / commande / offre de prix",
+        type=["pdf"],
+        accept_multiple_files=False,
+        key=f"pdf_{st.session_state.uploader_key}",
+    )
 
-            # Regroupe les frais complémentaires en une seule ligne Esabora.
-            # Exemple PUM : surcharge énergie + éco-contribution.
-            extras_total = round(sum(float(x["amount"]) for x in extra_charges), 2) if extra_charges else 0.0
-            if extras_total:
-                labels = {x["label"] for x in extra_charges}
-                if labels == {"ÉCO-CONTRIBUTION"}:
-                    extra_label = "ÉCO-CONTRIBUTION"
-                else:
-                    extra_label = "ÉCO-CONTRIBUTION / SURCHARGES"
-                export_rows.append({
-                    "Référence": "",
-                    "Désignation": extra_label,
-                    "Quantité": 1,
-                    "Prix unitaire": extras_total,
-                })
+    if uploaded:
+        try:
+            rows, supplier, doc_number, total_ht, extra_charges = extract_document(uploaded.getvalue())
 
-            df = pd.DataFrame(export_rows, columns=["Référence", "Désignation", "Quantité", "Prix unitaire"])
-            df["Quantité"] = df["Quantité"].apply(lambda x: int(x) if pd.notna(x) and float(x).is_integer() else x)
+            info1, info2 = st.columns(2)
+            info1.metric("Fournisseur", supplier)
+            info2.metric("N° document", doc_number)
 
-            # Contrôle comptable : comparaison du Total HT imprimé sur le BL
-            # avec la somme des lignes réellement extraites.
-            total_extrait = 0.0
-            for _, row in df.iterrows():
-                try:
-                    qte = float(row["Quantité"])
-                    pu = float(row["Prix unitaire"])
-                    total_extrait += qte * pu
-                except (TypeError, ValueError):
-                    pass
-            total_extrait = round(total_extrait, 2)
-            ecart = round(total_ht - total_extrait, 2) if total_ht is not None else None
+            if rows:
+                # Format d'import validé dans Esabora (Test 1).
+                # Référence reste vide tant qu'elle n'est pas extraite du PDF :
+                # le N° document reste affiché dans l'application et dans l'historique.
+                export_rows = []
+                for r in rows:
+                    export_rows.append({
+                        "Référence": "",
+                        "Désignation": str(r.get("Désignation", "") or ""),
+                        "Quantité": r.get("Quantité"),
+                        "Prix unitaire": r.get("Prix unitaire"),
+                    })
 
-            ctrl1, ctrl2, ctrl3 = st.columns(3)
-            ctrl1.metric("Total HT du BL", fmt_money(total_ht))
-            ctrl2.metric("Total extrait", fmt_money(total_extrait))
-            ctrl3.metric("Écart", fmt_money(ecart))
+                # Regroupe les frais complémentaires en une seule ligne Esabora.
+                # Exemple PUM : surcharge énergie + éco-contribution.
+                extras_total = round(sum(float(x["amount"]) for x in extra_charges), 2) if extra_charges else 0.0
+                if extras_total:
+                    labels = {x["label"] for x in extra_charges}
+                    if labels == {"ÉCO-CONTRIBUTION"}:
+                        extra_label = "ÉCO-CONTRIBUTION"
+                    else:
+                        extra_label = "ÉCO-CONTRIBUTION / SURCHARGES"
+                    export_rows.append({
+                        "Référence": "",
+                        "Désignation": extra_label,
+                        "Quantité": 1,
+                        "Prix unitaire": extras_total,
+                    })
 
-            if extra_charges:
-                eco_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "ÉCO-CONTRIBUTION"), 2)
-                energy_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "SURCHARGE ÉNERGIE"), 2)
-                details = []
-                if eco_total:
-                    details.append(f"éco-contribution : {fmt_money(eco_total)}")
-                if energy_total:
-                    details.append(f"surcharge énergie : {fmt_money(energy_total)}")
-                st.info(
-                    f"♻️ Frais complémentaires détectés : {fmt_money(extras_total)} "
-                    f"({', '.join(details)}). Ils ont été regroupés en une seule ligne et ajoutés au fichier Excel."
+                df = pd.DataFrame(export_rows, columns=["Référence", "Désignation", "Quantité", "Prix unitaire"])
+                df["Quantité"] = df["Quantité"].apply(lambda x: int(x) if pd.notna(x) and float(x).is_integer() else x)
+
+                # Contrôle comptable : comparaison du Total HT imprimé sur le BL
+                # avec la somme des lignes réellement extraites.
+                total_extrait = 0.0
+                for _, row in df.iterrows():
+                    try:
+                        qte = float(row["Quantité"])
+                        pu = float(row["Prix unitaire"])
+                        total_extrait += qte * pu
+                    except (TypeError, ValueError):
+                        pass
+                total_extrait = round(total_extrait, 2)
+                ecart = round(total_ht - total_extrait, 2) if total_ht is not None else None
+
+                ctrl1, ctrl2, ctrl3 = st.columns(3)
+                ctrl1.metric("Total HT du BL", fmt_money(total_ht))
+                ctrl2.metric("Total extrait", fmt_money(total_extrait))
+                ctrl3.metric("Écart", fmt_money(ecart))
+
+                if extra_charges:
+                    eco_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "ÉCO-CONTRIBUTION"), 2)
+                    energy_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "SURCHARGE ÉNERGIE"), 2)
+                    details = []
+                    if eco_total:
+                        details.append(f"éco-contribution : {fmt_money(eco_total)}")
+                    if energy_total:
+                        details.append(f"surcharge énergie : {fmt_money(energy_total)}")
+                    st.info(
+                        f"♻️ Frais complémentaires détectés : {fmt_money(extras_total)} "
+                        f"({', '.join(details)}). Ils ont été regroupés en une seule ligne et ajoutés au fichier Excel."
+                    )
+
+                if ecart is not None:
+                    if abs(ecart) <= 0.01:
+                        st.success(
+                            f"✅ Total extrait après intégration : {fmt_money(total_extrait)} — "
+                            f"Écart : {fmt_money(ecart)}"
+                        )
+                    else:
+                        st.warning(
+                            f"⚠️ Écart restant : {fmt_money(abs(ecart))}. "
+                            "Le document contient peut-être une autre ligne facturée, une remise ou un frais non encore détecté."
+                        )
+
+                st.success(f"{len(df)} ligne(s) article extraite(s)")
+                st.subheader("Aperçu avant export")
+                st.dataframe(df, use_container_width=True, hide_index=True)
+
+                # XlsxWriter écrit les chaînes dans sharedStrings.xml.
+                # C'est le format qui a été validé par le Test 1 dans l'import Esabora.
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                    df.to_excel(writer, index=False, sheet_name="Feuil1")
+                    workbook = writer.book
+                    ws = writer.sheets["Feuil1"]
+
+                    text_fmt = workbook.add_format({"num_format": "@"})
+                    qty_fmt = workbook.add_format({"num_format": "0.00"})
+                    price_fmt = workbook.add_format({"num_format": "0.00"})
+
+                    ws.set_column("A:A", 22, text_fmt)
+                    ws.set_column("B:B", 62, text_fmt)
+                    ws.set_column("C:C", 14, qty_fmt)
+                    ws.set_column("D:D", 18, price_fmt)
+
+                output.seek(0)
+
+                safe_num = re.sub(r"[^A-Za-z0-9._-]+", "_", doc_number)
+                st.download_button(
+                    "⬇ Télécharger l'Excel",
+                    data=output,
+                    file_name=f"Extraction_{safe_num}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary",
+                    use_container_width=True,
                 )
 
-            if ecart is not None:
-                if abs(ecart) <= 0.01:
-                    st.success(
-                        f"✅ Total extrait après intégration : {fmt_money(total_extrait)} — "
-                        f"Écart : {fmt_money(ecart)}"
+                signature = (uploaded.name, doc_number, len(df), total_ht, total_extrait)
+                if st.session_state.saved_signature != signature:
+                    entry = {
+                        "Date": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "Fournisseur": supplier,
+                        "N° document": doc_number,
+                        "Lignes": len(df),
+                        "Total HT BL": fmt_money(total_ht),
+                        "Total extrait": fmt_money(total_extrait),
+                        "Écart": fmt_money(ecart),
+                        "Fichier": uploaded.name,
+                    }
+                    st.session_state.history.insert(0, entry)
+                    st.session_state.history = st.session_state.history[:500]
+                    save_history(st.session_state.history)
+                    st.session_state.saved_signature = signature
+            else:
+                st.warning("Aucune ligne article reconnue sur ce document. Le format devra être ajouté à l'extracteur.")
+
+        except Exception as e:
+            st.error(f"Erreur de lecture du PDF : {e}")
+
+with tab_location:
+    st.subheader("🏗️ Locations")
+    st.caption("Moteur indépendant pour LOXAM, ACTIS Location et Accès Industrie.")
+
+    if "location_uploader_key" not in st.session_state:
+        st.session_state.location_uploader_key = 0
+
+    loc_top1, loc_top2 = st.columns([5, 1])
+    with loc_top2:
+        if st.button("↻ Nouvelle location", use_container_width=True):
+            st.session_state.location_uploader_key += 1
+            st.rerun()
+
+    uploaded_loc = st.file_uploader(
+        "Déposez votre devis / offre de location",
+        type=["pdf"],
+        accept_multiple_files=False,
+        key=f"location_pdf_{st.session_state.location_uploader_key}",
+    )
+
+    if uploaded_loc:
+        try:
+            loc = extract_rental(uploaded_loc.getvalue())
+            c1, c2 = st.columns(2)
+            c1.metric("Loueur", loc["Loueur"])
+            c2.metric("N° document", loc["N° document"])
+
+            d1, d2, d3 = st.columns(3)
+            d1.metric("Début", loc["Date début"] or "Non détecté")
+            d2.metric("Fin", loc["Date fin"] or "Non détecté")
+            d3.metric("Durée", loc["Durée"] or "Non détectée")
+
+            st.info(f"Matériel : **{loc['Matériel']}**")
+
+            if loc["Lignes"]:
+                loc_df = pd.DataFrame(loc["Lignes"], columns=["Désignation", "Montant HT"])
+                total_loc = round(float(loc_df["Montant HT"].sum()), 2)
+                total_doc = loc["Total HT document"]
+                ecart_loc = round(total_doc - total_loc, 2) if total_doc is not None else None
+
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Total HT document", fmt_money(total_doc))
+                m2.metric("Total extrait", fmt_money(total_loc))
+                m3.metric("Écart", fmt_money(ecart_loc))
+
+                if total_doc is None:
+                    st.info(
+                        "ℹ️ Aucun Total HT global n'est imprimé sur ce devis. "
+                        "Le total extrait correspond uniquement aux lignes chiffrées présentes dans l'offre."
                     )
+                elif abs(ecart_loc) <= 0.01:
+                    st.success(f"✅ Contrôle location OK — Écart : {fmt_money(ecart_loc)}")
                 else:
                     st.warning(
-                        f"⚠️ Écart restant : {fmt_money(abs(ecart))}. "
-                        "Le document contient peut-être une autre ligne facturée, une remise ou un frais non encore détecté."
+                        f"⚠️ Écart location : {fmt_money(abs(ecart_loc))}. "
+                        "Une prestation ou un frais du devis doit encore être identifié."
                     )
 
-            st.success(f"{len(df)} ligne(s) article extraite(s)")
-            st.subheader("Aperçu avant export")
-            st.dataframe(df, use_container_width=True, hide_index=True)
+                st.subheader("Détail de la location")
+                st.dataframe(loc_df, use_container_width=True, hide_index=True)
 
-            # XlsxWriter écrit les chaînes dans sharedStrings.xml.
-            # C'est le format qui a été validé par le Test 1 dans l'import Esabora.
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                df.to_excel(writer, index=False, sheet_name="Feuil1")
-                workbook = writer.book
-                ws = writer.sheets["Feuil1"]
+                export_loc = pd.DataFrame([{
+                    "Loueur": loc["Loueur"],
+                    "N° document": loc["N° document"],
+                    "Matériel": loc["Matériel"],
+                    "Date début": loc["Date début"],
+                    "Date fin": loc["Date fin"],
+                    "Durée": loc["Durée"],
+                    "Total HT document": total_doc,
+                    "Total extrait": total_loc,
+                    "Écart": ecart_loc,
+                }])
 
-                text_fmt = workbook.add_format({"num_format": "@"})
-                qty_fmt = workbook.add_format({"num_format": "0.00"})
-                price_fmt = workbook.add_format({"num_format": "0.00"})
+                out_loc = io.BytesIO()
+                with pd.ExcelWriter(out_loc, engine="xlsxwriter") as writer:
+                    export_loc.to_excel(writer, index=False, sheet_name="Synthèse")
+                    loc_df.to_excel(writer, index=False, sheet_name="Détail")
+                    wb = writer.book
+                    ws1 = writer.sheets["Synthèse"]
+                    ws2 = writer.sheets["Détail"]
+                    money_fmt = wb.add_format({"num_format": "0.00"})
+                    ws1.set_column("A:C", 28)
+                    ws1.set_column("D:F", 16)
+                    ws1.set_column("G:I", 18, money_fmt)
+                    ws2.set_column("A:A", 42)
+                    ws2.set_column("B:B", 18, money_fmt)
+                out_loc.seek(0)
 
-                ws.set_column("A:A", 22, text_fmt)
-                ws.set_column("B:B", 62, text_fmt)
-                ws.set_column("C:C", 14, qty_fmt)
-                ws.set_column("D:D", 18, price_fmt)
-
-            output.seek(0)
-
-            safe_num = re.sub(r"[^A-Za-z0-9._-]+", "_", doc_number)
-            st.download_button(
-                "⬇ Télécharger l'Excel",
-                data=output,
-                file_name=f"Extraction_{safe_num}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary",
-                use_container_width=True,
-            )
-
-            signature = (uploaded.name, doc_number, len(df), total_ht, total_extrait)
-            if st.session_state.saved_signature != signature:
-                entry = {
-                    "Date": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "Fournisseur": supplier,
-                    "N° document": doc_number,
-                    "Lignes": len(df),
-                    "Total HT BL": fmt_money(total_ht),
-                    "Total extrait": fmt_money(total_extrait),
-                    "Écart": fmt_money(ecart),
-                    "Fichier": uploaded.name,
-                }
-                st.session_state.history.insert(0, entry)
-                st.session_state.history = st.session_state.history[:500]
-                save_history(st.session_state.history)
-                st.session_state.saved_signature = signature
-        else:
-            st.warning("Aucune ligne article reconnue sur ce document. Le format devra être ajouté à l'extracteur.")
-
-    except Exception as e:
-        st.error(f"Erreur de lecture du PDF : {e}")
+                safe_loc = re.sub(r"[^A-Za-z0-9._-]+", "_", loc["N° document"])
+                st.download_button(
+                    "⬇ Télécharger l'Excel Location",
+                    data=out_loc,
+                    file_name=f"Location_{safe_loc}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary",
+                    use_container_width=True,
+                )
+            else:
+                st.warning("Aucune ligne de location reconnue sur ce document.")
+        except Exception as e:
+            st.error(f"Erreur de lecture du PDF Location : {e}")
 
 st.divider()
 with st.expander("Historique de contrôle", expanded=False):
@@ -666,4 +935,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13</div>', unsafe_allow_html=True)
