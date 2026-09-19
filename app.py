@@ -374,16 +374,30 @@ def text_rows(text, supplier):
                 rows.append({"Désignation": desc, "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(1))})
 
     elif supplier == "OUEST ISOL":
-        # La ligne principale contient code + nom + quantité + unité + PU net + montant.
+        # OUEST ISOL coupe visuellement une même ligne article sur plusieurs lignes PDF.
+        # On travaille donc sur le texte aplati entre l'en-tête du tableau et la zone TVA.
+        flat = re.sub(r"\s+", " ", text.replace("\u00a0", " "))
+        zone_m = re.search(
+            r"Lignes\s+Code article\s+Nom article.*?Montant HT\s*€\s+(.*?)(?:\bTVA\s+TVA\b|\bTotal Eco-taxe\b)",
+            flat, re.I
+        )
+        zone = zone_m.group(1) if zone_m else flat
+
+        # Format constaté :
+        # 1 C020205127000 ALUFLEX ... Normalement disponible Agence 1,00 CTN 13,71 € 13.71 €
         pat = re.compile(
-            r"^\d+\s+\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"
-            r"(?:CTN|PCE|PC|U|ML|M)\s+(\d+(?:[.,]\d+)?)\s*€?\s+\d+(?:[.,]\d+)?\s*€?$",
+            r"(?:^|\s)(\d+)\s+([A-Z0-9_-]{6,})\s+(.+?)\s+"
+            r"(?:Normalement\s+disponible(?:\s+Agence)?|Disponible(?:\s+Agence)?|En\s+stock)\s+"
+            r"(\d+(?:[.,]\d+)?)\s+(CTN|PCE|PCS|PC|U|UN|ML|M|KG)\s+"
+            r"(\d+(?:[.,]\d+)?)\s*€\s+(\d+(?:[.,]\d+)?)\s*€",
             re.I
         )
-        for line in lines:
-            m = pat.match(line)
-            if m:
-                rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+        for m in pat.finditer(zone):
+            rows.append({
+                "Désignation": clean(m.group(3)),
+                "Quantité": fr_float(m.group(4)),
+                "Prix unitaire": fr_float(m.group(6))
+            })
 
     elif supplier == "PROLIANS":
         # Désignation sur la ligne précédente, puis réf / quantité / unité / PU.
