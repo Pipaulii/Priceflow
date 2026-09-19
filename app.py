@@ -620,7 +620,10 @@ def extract_rental(pdf_bytes):
                 "Montant HT": fr_float(m.group(1))
             })
 
-        m = re.search(r"Renonciation à recours.*?\s+\d+\s+([0-9 ]+[,.]\d{2})\s*€", flat, re.I)
+        m = re.search(
+            r"Renonciation à recours.*?\s+\d+\s+[0-9 ]+[,.]\d{2}\s*€\s+\d+\s+([0-9 ]+[,.]\d{2})\s*€",
+            flat, re.I
+        )
         if m:
             result["Lignes"].append({
                 "Désignation": "RENONCIATION À RECOURS / ASSURANCE",
@@ -673,6 +676,7 @@ def extract_rental(pdf_bytes):
             ("TRANSPORT RETOUR", r"Transport Retour\s+([0-9 ]+[,.]\d{2})"),
             ("MAJORATION TRANSPORT RETOUR", r"MAJORATION TRANSPORT RETOUR.*?\s([0-9 ]+[,.]\d{2})\s*$"),
             ("MAJORATION TRANSPORT ALLER", r"MAJORATION TRANSPORT ALLER.*?\s([0-9 ]+[,.]\d{2})\s*$"),
+            ("FORFAIT RECHARGE ÉLECTRIQUE", r"FORFAIT RECHARGE ELEC\.?[^\n]*?\s([0-9 ]+[,.]\d{2})\s*$"),
         ]
         for label, pat in line_patterns:
             m = re.search(pat, text, re.I | re.M)
@@ -1026,4 +1030,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13.5</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13.6</div>', unsafe_allow_html=True)
