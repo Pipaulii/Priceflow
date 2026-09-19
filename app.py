@@ -561,105 +561,159 @@ def extract_rental(pdf_bytes):
     }
 
     if supplier == "ACTIS LOCATION":
+        # Numéro / total
         m = re.search(r"Offre de location\s*#(\d+)", text, re.I)
-        if m: result["N° document"] = m.group(1)
-        m = re.search(r"Date de début\s+(\d{2}/\d{2}/\d{4})", text, re.I)
-        if m: result["Date début"] = m.group(1)
-        m = re.search(r"Durée initiale\s+(\d+\s+jours?)", text, re.I)
-        if m: result["Durée"] = m.group(1)
+        if m:
+            result["N° document"] = m.group(1)
+
         m = re.search(r"Total HT\s+([0-9 .]+[,.]\d{2})\s*€", text, re.I)
-        if m: result["Total HT document"] = fr_float(m.group(1))
-        m = re.search(r"Location\s+(.+?)\s+du\s+(\d{2}/\d{2}/\d{4}).*?au\s+(\d{2}/\d{2}/\d{4}).*?\(\d+\s+jours?\)", flat, re.I)
+        if m:
+            result["Total HT document"] = fr_float(m.group(1))
+
+        # Matériel : privilégier la ligne explicite du devis.
+        m = re.search(r"(?m)^Matériel\s*:\s*(.+?)(?:\s+N°\s*parc\s*:|\s+Référence\s*:|$)", text, re.I)
         if m:
             result["Matériel"] = clean(m.group(1))
+
+        # Ligne principale de location : désignation + dates.
+        m = re.search(
+            r"Location\s+(.+?)\s+1\s+[0-9 ]+(?:[,.]\d+)?\s*€\s+\d+\s+[0-9 ]+(?:[,.]\d+)?\s*€\s+"
+            r"du\s+(\d{2}/\d{2}/\d{4}).*?\s+au\s+(\d{2}/\d{2}/\d{4}).*?\((\d+)\s+jours?\)",
+            flat, re.I
+        )
+        if m:
+            # Si la ligne Matériel n'a pas été trouvée, utiliser la désignation de location.
+            if result["Matériel"] == "Non détecté":
+                result["Matériel"] = clean(m.group(1))
             result["Date début"] = m.group(2)
             result["Date fin"] = m.group(3)
+            result["Durée"] = f"{m.group(4)} jours"
 
-        patterns = [
-            ("LOCATION", r"\b1\s+844\s*€\s+3\s+2532\s*€", 2532.00),
-            ("RENONCIATION À RECOURS / ASSURANCE", r"\b1\s+84[,.]40\s*€\s+3\s+253[,.]20\s*€", 253.20),
-            ("LIVRAISON", r"LIVRAISON SUR CHANTIER\s+1\s+230\s*€\s+230\s*€", 230.00),
-            ("RÉCUPÉRATION", r"RECUPERATION SUR CHANTIER\s+1\s+230\s*€\s+230\s*€", 230.00),
-            ("CONTRIBUTION VERTE", r"Contribution verte\s*:\s*1%.*?\s+1\s+25[,.]32\s*€\s+25[,.]32\s*€", 25.32),
-        ]
-        for label, pat, amount in patterns:
-            if re.search(pat, flat, re.I):
-                result["Lignes"].append({"Désignation": label, "Montant HT": amount})
+        # Garde-fous dates/durée
+        if not result["Date début"]:
+            m = re.search(r"Date de début\s+(\d{2}/\d{2}/\d{4})", text, re.I)
+            if m:
+                result["Date début"] = m.group(1)
+        if not result["Durée"]:
+            m = re.search(r"Durée initiale\s+(\d+\s+jours?)", text, re.I)
+            if m:
+                result["Durée"] = m.group(1)
+
+        # Montants réellement imprimés sur le devis.
+        m = re.search(
+            r"Location\s+.+?\s+1\s+[0-9 ]+(?:[,.]\d+)?\s*€\s+\d+\s+([0-9 ]+(?:[,.]\d+)?)\s*€",
+            flat, re.I
+        )
+        if m:
+            result["Lignes"].append({
+                "Désignation": "LOCATION",
+                "Montant HT": fr_float(m.group(1))
+            })
+
+        m = re.search(r"Renonciation à recours.*?\s+\d+\s+([0-9 ]+[,.]\d{2})\s*€", flat, re.I)
+        if m:
+            result["Lignes"].append({
+                "Désignation": "RENONCIATION À RECOURS / ASSURANCE",
+                "Montant HT": fr_float(m.group(1))
+            })
+
+        for label, pat in [
+            ("LIVRAISON", r"LIVRAISON SUR CHANTIER\s+\d+\s+[0-9 ]+(?:[,.]\d+)?\s*€\s+([0-9 ]+(?:[,.]\d+)?)\s*€"),
+            ("RÉCUPÉRATION", r"RECUPERATION SUR CHANTIER\s+\d+\s+[0-9 ]+(?:[,.]\d+)?\s*€\s+([0-9 ]+(?:[,.]\d+)?)\s*€"),
+            ("CONTRIBUTION VERTE", r"Contribution verte\s*:\s*1%.*?\s+\d+\s+[0-9 ]+(?:[,.]\d+)?\s*€\s+([0-9 ]+(?:[,.]\d+)?)\s*€"),
+        ]:
+            m = re.search(pat, flat, re.I)
+            if m:
+                result["Lignes"].append({"Désignation": label, "Montant HT": fr_float(m.group(1))})
 
     elif supplier == "LOXAM":
-        m = re.search(r"\b(\d{12})\s+du\s+\d{1,2}/\d{1,2}/\d{2}", text)
-        if m: result["N° document"] = m.group(1)
+        # Le texte LOXAM duplique parfois chaque caractère dans les libellés.
+        # Le numéro imprimé après N° est lui aussi parfois doublé caractère par caractère.
+        m = re.search(r"N[°º]\s+([0-9]{16,})\s+dduu\s+\d{1,2}/\d{1,2}/\d{2}", text, re.I)
+        if m:
+            raw = m.group(1)
+            if len(raw) % 2 == 0 and all(raw[i] == raw[i+1] for i in range(0, len(raw), 2)):
+                raw = raw[::2]
+            result["N° document"] = raw
+        else:
+            m = re.search(r"\b(\d{10,14})\s+du\s+\d{1,2}/\d{1,2}/\d{2}", text, re.I)
+            if m:
+                result["N° document"] = m.group(1)
+
         m = re.search(r"Date de début de location:\s*(\d{1,2}/\d{1,2}/\d{2})", text, re.I)
-        if m: result["Date début"] = m.group(1)
+        if m:
+            result["Date début"] = m.group(1)
+
         m = re.search(r"(\d+)\s*jrs\s+du\s+(\d{1,2}/\d{1,2}/\d{2})\s+au\s+(\d{1,2}/\d{1,2}/\d{2})", text, re.I)
         if m:
             result["Durée"] = f"{m.group(1)} jours"
             result["Date début"] = m.group(2)
             result["Date fin"] = m.group(3)
-        m = re.search(r"\d{3}-\d{4}\s+([A-Z0-9 .ÉÈÀ'/-]+)\n", text)
-        if m: result["Matériel"] = clean(m.group(1))
-        # Le PDF LOXAM place le montant juste avant le libellé dans l'ordre texte.
-        loxam_lines = [
-            ("LOCATION / TOTAL PÉRIODE", "Total période", 879.54),
-            ("GARANTIE DOMMAGES", "Garantie dommages", 105.54),
-            ("CONTRIBUTION VERTE", "Contribution verte", 10.55),
-            ("TRANSPORT ALLER", "Transport Aller", 179.00),
-            ("TRANSPORT RETOUR", "Transport Retour", 179.00),
-            ("MAJORATION TRANSPORT ALLER", "MAJORATION TRANSPORT ALLER", 8.00),
-            ("MAJORATION TRANSPORT RETOUR", "MAJORATION TRANSPORT RETOUR", 8.00),
+
+        m = re.search(r"\d{3}-\d{4}\s+(.+?)\n", text)
+        if m:
+            result["Matériel"] = clean(m.group(1))
+
+        # Lignes chiffrées
+        line_patterns = [
+            ("LOCATION / TOTAL PÉRIODE", r"Total période\s+([0-9 ]+[,.]\d{2})"),
+            ("GARANTIE DOMMAGES", r"(?:Garantie dommages|GGaarraannttiiee ddoommmmaaggeess)\s+([0-9 ]+[,.]\d{2})"),
+            ("CONTRIBUTION VERTE", r"Contribution verte\s+([0-9 ]+[,.]\d{2})"),
+            ("TRANSPORT ALLER", r"Transport Aller\s+([0-9 ]+[,.]\d{2})"),
+            ("TRANSPORT RETOUR", r"Transport Retour\s+([0-9 ]+[,.]\d{2})"),
+            ("MAJORATION TRANSPORT RETOUR", r"MAJORATION TRANSPORT RETOUR.*?\s([0-9 ]+[,.]\d{2})\s*$"),
+            ("MAJORATION TRANSPORT ALLER", r"MAJORATION TRANSPORT ALLER.*?\s([0-9 ]+[,.]\d{2})\s*$"),
         ]
-        for label, token, amount in loxam_lines:
-            if token.lower() in text.lower():
-                result["Lignes"].append({"Désignation": label, "Montant HT": amount})
-        # Total prévisionnel HT : dans ce format, 1369.63 apparaît avant le libellé page 2.
-        if re.search(r"Total Prévisionnel HT", text, re.I):
-            vals = [fr_float(x) for x in re.findall(r"(?m)^\s*(\d+[.,]\d{2})\s*$", text)]
-            vals = [x for x in vals if x is not None]
-            if 1369.63 in vals:
-                result["Total HT document"] = 1369.63
-            elif vals:
-                # Somme des lignes détectées comme garde-fou si le montant est isolé.
-                s = round(sum(x["Montant HT"] for x in result["Lignes"]), 2)
-                result["Total HT document"] = s if s > 0 else None
+        for label, pat in line_patterns:
+            m = re.search(pat, text, re.I | re.M)
+            if m:
+                result["Lignes"].append({"Désignation": label, "Montant HT": fr_float(m.group(1))})
+
+        # Total prévisionnel HT (libellé normal ou caractères doublés).
+        m = re.search(r"(?:Total Prévisionnel HT|TToottaall PPrréévviissiioonnnneell HHTT)\s+([0-9 ]+[,.]\d{2})", text, re.I)
+        if m:
+            result["Total HT document"] = fr_float(m.group(1))
 
     elif supplier == "ACCÈS INDUSTRIE":
         m = re.search(r"N[°º]?\s*(DEV-COM-[A-Z0-9]+)", text, re.I)
-        if m: result["N° document"] = m.group(1)
+        if m:
+            result["N° document"] = m.group(1)
+
+        # Ligne article du tableau : CE08 CISEAU ELECT 8 m du lun. 08/06/2026 au ven. 12/06/2026 52,00 €/ jour
         m = re.search(
-            r"([A-Z0-9]+)\s+(.+?)\s+du\s+\w+\.\s*(\d{2}/\d{2}/\d{4})\s+au\s+\w+\.\s*(\d{2}/\d{2}/\d{4})",
-            flat, re.I
+            r"(?m)^([A-Z0-9]+)\s+(.+?)\s+du\s+\w+\.\s*(\d{2}/\d{2}/\d{4})\s+au\s+\w+\.\s*(\d{2}/\d{2}/\d{4})\s+([0-9 ]+[,.]\d{2})\s*€\s*/\s*jour",
+            text, re.I
         )
+        day_rate = None
         if m:
             result["Matériel"] = clean(m.group(2))
             result["Date début"] = m.group(3)
             result["Date fin"] = m.group(4)
+            day_rate = fr_float(m.group(5))
+
         m = re.search(r"Durée\s*:\s*(\d+)\s+jours?", text, re.I)
         days = int(m.group(1)) if m else None
         if days:
             result["Durée"] = f"{days} jours"
-        m = re.search(r"([0-9]+[,.]\d{2})\s*€\s*/\s*jour", text, re.I)
-        day_rate = fr_float(m.group(1)) if m else None
+
         if days and day_rate is not None:
-            result["Lignes"].append({"Désignation": "LOCATION", "Montant HT": round(days * day_rate, 2)})
-        m = re.search(r"Livraison\s+([0-9]+[,.]\d{2})\s*€", text, re.I)
-        if m: result["Lignes"].append({"Désignation": "LIVRAISON", "Montant HT": fr_float(m.group(1))})
-        m = re.search(r"Récupération\s+([0-9]+[,.]\d{2})\s*€", text, re.I)
-        if m: result["Lignes"].append({"Désignation": "RÉCUPÉRATION", "Montant HT": fr_float(m.group(1))})
-        # Ce devis n'imprime pas de Total HT global : ne pas inventer un total document.
+            result["Lignes"].append({
+                "Désignation": "LOCATION",
+                "Montant HT": round(days * day_rate, 2)
+            })
+
+        m = re.search(r"Livraison\s+([0-9 ]+[,.]\d{2})\s*€", text, re.I)
+        if m:
+            result["Lignes"].append({"Désignation": "LIVRAISON", "Montant HT": fr_float(m.group(1))})
+
+        m = re.search(r"Récupération\s+([0-9 ]+[,.]\d{2})\s*€", text, re.I)
+        if m:
+            result["Lignes"].append({"Désignation": "RÉCUPÉRATION", "Montant HT": fr_float(m.group(1))})
+
+        # Ce format ne présente pas de total HT global imprimé.
         result["Total HT document"] = None
 
     return result
-
-def fmt_money(v):
-    if v is None:
-        return "Non détecté"
-    return f"{v:,.2f} €".replace(",", " ").replace(".", ",")
-
-def new_document():
-    st.session_state.uploader_key += 1
-    st.session_state.saved_signature = None
-    st.rerun()
-
 
 tab_achats, tab_location = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations"])
 
@@ -935,4 +989,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13.2</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V13.3</div>', unsafe_allow_html=True)
