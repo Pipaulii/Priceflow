@@ -90,6 +90,11 @@ def detect_supplier(text):
     if "mypum.fr" in low or '"les cayols"' in low: return "PUM"
     if "cedeo" in low or "bon d'enlèvement" in low: return "CEDEO"
     if "midipyreneesscellement" in compact or "mpsvitrolles" in compact: return "MPS"
+    if "rexel" in low and "facture" in low: return "REXEL"
+    if "ouestisol.fr" in low or "ouest isol" in low or "oiv marseille" in low: return "OUEST ISOL"
+    if "prolians" in low or "descours & cabaud" in low: return "PROLIANS"
+    if "lorflex" in low: return "LORFLEX"
+    if "fritec" in low: return "FRITEC"
     return "Fournisseur non identifié"
 
 def detect_document_number(text, supplier):
@@ -123,14 +128,41 @@ def detect_document_number(text, supplier):
         m = re.search(r"Bulletindelivraison\*?([0-9]{5,})", compact, re.I)
         if m: return m.group(1)
 
+    supplier_patterns = {
+        "REXEL": [r"FACTURE\s*N[°º]?\s*([0-9]{6,})"],
+        "OUEST ISOL": [r"PROPOSITION\s+COMMERCIALE\s*N[°º]?\s*([0-9]{6,})"],
+        "PROLIANS": [r"Bulletin\s+de\s+livraison\s*\*?\s*([0-9]{5,})", r"\*\s*([0-9]{5,})"],
+        "LORFLEX": [r"\bDevis\s+([0-9]{6,})\b"],
+        "FRITEC": [r"Numéro\s*:\s*([0-9]{6,})"],
+    }
+    for pat in supplier_patterns.get(supplier, []):
+        m = re.search(pat, text, re.I)
+        if m:
+            return m.group(1)
+
     return "Non détecté"
 
-def detect_total_ht(text):
+def detect_total_ht(text, supplier=None):
     # Détection du Total HT quel que soit son emplacement sur la ligne.
     # Compatible notamment : Outillage Méridional, First, Anconetti, MPS,
     # Aredis, PUM et CEDEO.
     normalized = text.replace("\u00a0", " ")
     money = r"([0-9][0-9 .]*[,.][0-9]{2,4})"
+
+    # Totaux spécifiques aux nouveaux formats fournisseurs.
+    specific_patterns = {
+        "REXEL": [r"NET\s+H\.T\.\s*" + money, r"Sous\s+total\s+commande\s+\S+\s+" + money],
+        "OUEST ISOL": [r"Total\s+HT\s+EUR\s+" + money],
+        "PROLIANS": [r"TOTAL\s+H\.T\.\s*:\s*" + money],
+        "LORFLEX": [r"Total\s+brut\s+HT\s+" + money, r"Total\s+postes\s+" + money],
+        "FRITEC": [r"Montant\s+total\s+de\s+la\s+commande\s+net\s+HT\s+" + money],
+    }
+    for pat in specific_patterns.get(supplier, []):
+        m = re.search(pat, normalized, re.I)
+        if m:
+            value = fr_float(m.group(1))
+            if value is not None:
+                return value
 
     for raw in normalized.splitlines():
         line = clean(raw)
@@ -329,6 +361,77 @@ def text_rows(text, supplier):
                 if desc and not re.match(r"^\d", desc):
                     rows.append({"Désignation": desc, "Quantité": fr_float(m.group(1)), "Prix unitaire": fr_float(m.group(2))})
 
+    elif supplier == "REXEL":
+        # 0010 REF PU_BRUT REMISE PU_NET QTE U TOTAL TVA
+        pat = re.compile(
+            r"^\d+\s+\S+\s+\d+(?:[.,]\d+)?\s+\d+(?:[.,]\d+)?\s+"
+            r"(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)\s+\w+\s+\d+(?:[.,]\d+)?\s+\d+\s*$"
+        )
+        for i, line in enumerate(lines):
+            m = pat.match(line)
+            if m:
+                desc = lines[i + 1] if i + 1 < len(lines) else "ARTICLE REXEL"
+                rows.append({"Désignation": desc, "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(1))})
+
+    elif supplier == "OUEST ISOL":
+        # La ligne principale contient code + nom + quantité + unité + PU net + montant.
+        pat = re.compile(
+            r"^\d+\s+\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"
+            r"(?:CTN|PCE|PC|U|ML|M)\s+(\d+(?:[.,]\d+)?)\s*€?\s+\d+(?:[.,]\d+)?\s*€?$",
+            re.I
+        )
+        for line in lines:
+            m = pat.match(line)
+            if m:
+                rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+
+    elif supplier == "PROLIANS":
+        # Désignation sur la ligne précédente, puis réf / quantité / unité / PU.
+        for i, line in enumerate(lines):
+            m = re.match(
+                r"^\d{5,}\s+(\d+(?:[.,]\d+)?)\s+[A-Z]\s+(\d+(?:[.,]\d+)?)"
+                r"(?:\s+\d+(?:[.,]\d+)?){2,}.*$",
+                line, re.I
+            )
+            if m and i > 0:
+                desc = re.sub(r"\s+F\d+$", "", lines[i - 1]).strip()
+                rows.append({"Désignation": desc, "Quantité": fr_float(m.group(1)), "Prix unitaire": fr_float(m.group(2))})
+
+    elif supplier == "LORFLEX":
+        pat = re.compile(
+            r"^\d+\s+\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+PC\s+"
+            r"\d+(?:[.,]\d+)?\s+Remise\s+-?\d+(?:[.,]\d+)?%\s+"
+            r"(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)?$",
+            re.I
+        )
+        for line in lines:
+            m = pat.match(line)
+            if m:
+                rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+
+    elif supplier == "FRITEC":
+        # Ligne d'entête article : position, quantité, unité, référence, PU, date.
+        pat = re.compile(
+            r"^\d+\s+(\d+(?:[.,]\d+)?)\s+(?:m|pc|pce|u|ml|kg)\s+\S+\s+"
+            r"(\d+(?:[.,]\d+)?)\s+\d{2}[./]\d{2}[./]\d{2}$",
+            re.I
+        )
+        for i, line in enumerate(lines):
+            m = pat.match(line)
+            if not m:
+                continue
+            desc_parts = []
+            for nxt in lines[i + 1:i + 4]:
+                if nxt.lower().startswith("code:") or re.match(r"^\d+\s+\d", nxt):
+                    break
+                # Ignore un montant isolé placé avant la désignation.
+                if re.fullmatch(r"\d+(?:[.,]\d+)", nxt):
+                    continue
+                desc_parts.append(nxt)
+            desc = clean(" ".join(desc_parts))
+            if desc:
+                rows.append({"Désignation": desc, "Quantité": fr_float(m.group(1)), "Prix unitaire": fr_float(m.group(2))})
+
     return rows
 
 def dedupe(rows):
@@ -345,12 +448,12 @@ def extract_document(pdf_bytes):
         text = "\n".join(page.extract_text(x_tolerance=2, y_tolerance=3) or "" for page in pdf.pages)
         supplier = detect_supplier(text)
         number = detect_document_number(text, supplier)
-        total_ht = detect_total_ht(text)
+        total_ht = detect_total_ht(text, supplier)
         extra_charges = detect_extra_charges(text)
 
         rows = table_rows(pdf)
         # Certains fournisseurs ont des PDF sans tableau exploitable.
-        if not rows or supplier in ["FIRST ROBINETTERIE", "ANCONETTI", "PUM", "MPS"]:
+        if not rows or supplier in ["FIRST ROBINETTERIE", "ANCONETTI", "PUM", "MPS", "REXEL", "OUEST ISOL", "PROLIANS", "LORFLEX", "FRITEC"]:
             specific = text_rows(text, supplier)
             if specific:
                 rows = specific
