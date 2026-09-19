@@ -374,30 +374,38 @@ def text_rows(text, supplier):
                 rows.append({"Désignation": desc, "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(1))})
 
     elif supplier == "OUEST ISOL":
-        # OUEST ISOL coupe visuellement une même ligne article sur plusieurs lignes PDF.
-        # On travaille donc sur le texte aplati entre l'en-tête du tableau et la zone TVA.
-        flat = re.sub(r"\s+", " ", text.replace("\u00a0", " "))
-        zone_m = re.search(
-            r"Lignes\s+Code article\s+Nom article.*?Montant HT\s*€\s+(.*?)(?:\bTVA\s+TVA\b|\bTotal Eco-taxe\b)",
-            flat, re.I
-        )
-        zone = zone_m.group(1) if zone_m else flat
+        # pdfplumber lit OUEST ISOL dans cet ordre :
+        # "Normalement disponible 1,00"
+        # "1 C020205127000 ALUFLEX ... CTN 13,71 € 13.71 €"
+        # "Agence"
+        # La quantité est donc souvent sur la ligne juste AVANT l'article.
+        last_qty = None
 
-        # Format constaté :
-        # 1 C020205127000 ALUFLEX ... Normalement disponible Agence 1,00 CTN 13,71 € 13.71 €
-        pat = re.compile(
-            r"(?:^|\s)(\d+)\s+([A-Z0-9_-]{6,})\s+(.+?)\s+"
-            r"(?:Normalement\s+disponible(?:\s+Agence)?|Disponible(?:\s+Agence)?|En\s+stock)\s+"
-            r"(\d+(?:[.,]\d+)?)\s+(CTN|PCE|PCS|PC|U|UN|ML|M|KG)\s+"
-            r"(\d+(?:[.,]\d+)?)\s*€\s+(\d+(?:[.,]\d+)?)\s*€",
-            re.I
-        )
-        for m in pat.finditer(zone):
-            rows.append({
-                "Désignation": clean(m.group(3)),
-                "Quantité": fr_float(m.group(4)),
-                "Prix unitaire": fr_float(m.group(6))
-            })
+        for i, line in enumerate(lines):
+            mq = re.search(
+                r"(?:Normalement\s+disponible|Disponible|En\s+stock)\s+"
+                r"(\d+(?:[.,]\d+)?)\s*$",
+                line, re.I
+            )
+            if mq:
+                last_qty = fr_float(mq.group(1))
+                continue
+
+            m = re.match(
+                r"^\d+\s+([A-Z0-9_-]{6,})\s+(.+?)\s+"
+                r"(CTN|PCE|PCS|PC|U|UN|ML|M|KG)\s+"
+                r"(\d+(?:[.,]\d+)?)\s*€?\s+"
+                r"(\d+(?:[.,]\d+)?)\s*€?\s*$",
+                line, re.I
+            )
+            if m:
+                qty = last_qty if last_qty is not None else 1.0
+                rows.append({
+                    "Désignation": clean(m.group(2)),
+                    "Quantité": qty,
+                    "Prix unitaire": fr_float(m.group(4))
+                })
+                last_qty = None
 
     elif supplier == "PROLIANS":
         # Désignation sur la ligne précédente, puis réf / quantité / unité / PU.
