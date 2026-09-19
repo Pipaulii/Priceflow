@@ -483,16 +483,64 @@ def text_rows(text, supplier):
                 rows.append({"Désignation": desc, "Quantité": fr_float(m.group(1)), "Prix unitaire": fr_float(m.group(2))})
 
     elif supplier == "LORFLEX":
+        # Format LORFLEX :
+        # Poste | Article | Description | Quantité | unité | PU Brut |
+        # Conditions | remise | PU Net | Montant Net
+        #
+        # Important : le PDF contient beaucoup d'autres nombres.
+        # On ne lit que la zone du tableau, entre son en-tête et "Total postes".
+        in_articles = False
         pat = re.compile(
-            r"^\d+\s+\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+PC\s+"
-            r"\d+(?:[.,]\d+)?\s+Remise\s+-?\d+(?:[.,]\d+)?%\s+"
-            r"(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)?$",
+            r"^(\d{1,4})\s+"                       # Poste
+            r"([A-Z0-9._/-]+)\s+"                  # Article
+            r"(.+?)\s+"                            # Description
+            r"(\d+(?:[.,]\d+)?)\s+"                # Quantité
+            r"(PC|PCE|PCS|U|UN|ML|M|ENS|LOT)\s+"   # Unité
+            r"(\d[\d .]*[,.]\d{2})\s+"             # PU Brut
+            r"Remise\s+[-+]?\d+(?:[.,]\d+)?%\s+"  # Conditions
+            r"(\d[\d .]*[,.]\d{2})\s+"             # PU Net
+            r"(\d[\d .]*[,.]\d{2})$",              # Montant Net
             re.I
         )
+
         for line in lines:
+            up = line.upper()
+
+            if ("POSTE" in up and "ARTICLE" in up and "DESCRIPTION" in up
+                    and ("QUANTITÉ" in up or "QUANTITE" in up)):
+                in_articles = True
+                continue
+
+            if in_articles and ("TOTAL POSTES" in up or "TOTAL BRUT HT" in up):
+                break
+
+            if not in_articles:
+                continue
+
             m = pat.match(line)
-            if m:
-                rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+            if not m:
+                continue
+
+            reference = clean(m.group(2))
+            desc = clean(m.group(3))
+            qty = fr_float(m.group(4))
+            pu_net = fr_float(m.group(7))
+            montant_net = fr_float(m.group(8))
+
+            if qty is None or pu_net is None or montant_net is None:
+                continue
+
+            # Tolérance de quelques centimes : certains PU nets sont affichés
+            # à 2 décimales alors que le montant peut provenir d'un calcul interne.
+            if abs((qty * pu_net) - montant_net) > 0.08:
+                continue
+
+            rows.append({
+                "Référence": reference,
+                "Désignation": desc,
+                "Quantité": qty,
+                "Prix unitaire": pu_net
+            })
 
     elif supplier == "RICHARDSON":
         pat = re.compile(
@@ -1372,4 +1420,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14.2</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14.3</div>', unsafe_allow_html=True)
