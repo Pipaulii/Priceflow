@@ -376,7 +376,7 @@ uploaded = st.file_uploader(
 
 if uploaded:
     try:
-        rows, supplier, doc_number, total_ht = extract_document(uploaded.getvalue())
+        rows, supplier, doc_number, total_ht, extra_charges = extract_document(uploaded.getvalue())
 
         info1, info2 = st.columns(2)
         info1.metric("Fournisseur", supplier)
