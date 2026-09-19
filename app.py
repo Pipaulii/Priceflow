@@ -188,7 +188,7 @@ def detect_total_ht(text):
     return None
 
 def detect_extra_charges(text):
-    """Retourne les frais complémentaires facturés séparément du prix des articles."""
+    """Détecte les frais complémentaires réellement facturés."""
     charges = []
     seen = set()
 
@@ -196,49 +196,55 @@ def detect_extra_charges(text):
         line = clean(raw)
         low = line.lower()
 
-        label = None
         if re.search(r"\b(?:eco|éco)\s*contribution\b", low):
-            label = "ÉCO-CONTRIBUTION"
-        elif re.search(r"\bsurcharge\s+[ée]nergie\b", low):
-            label = "SURCHARGE ÉNERGIE"
-        else:
-            continue
-
-        # Cas "Eco contribution : 2,45 EUR"
-        m = re.search(
-            r"(?:eco|éco)\s*contribution\s*(?:rep)?\s*[:.]?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\s*(?:eur|€)?",
-            line, flags=re.I
-        )
-        if label == "SURCHARGE ÉNERGIE":
-            m = re.search(
-                r"surcharge\s+[ée]nergie\s*[:.]?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\s*(?:eur|€)?",
-                line, flags=re.I
-            )
-
-        # Cas article ANCONETTI :
-        # "454 ECO CONTRIBUTION REP 1,000 PCE 0,04 0,04"
-        if label == "ÉCO-CONTRIBUTION" and not m:
+            # Ligne article, ex. ANCONETTI :
+            # 454 ECO CONTRIBUTION REP 1,000 PCE 0,04 0,04
             m = re.search(
                 r"(?:eco|éco)\s*contribution(?:\s+rep)?\s+"
-                r"([0-9]+(?:[,.][0-9]+)?)\s+(?:PCE|ML|M|U|KG)\s+"
+                r"([0-9]+(?:[,.][0-9]+)?)\s+"
+                r"(?:PCE|PCS|PIECE|PIÈCE|ML|M|U|UN|KG)\s+"
                 r"([0-9]+(?:[,.][0-9]{1,4})?)\s+"
                 r"([0-9]+(?:[,.][0-9]{1,4})?)",
                 line, flags=re.I
             )
             if m:
+                # Le dernier nombre est le montant HT de la ligne.
                 amount = fr_float(m.group(3))
-                key = (label, round(amount or 0, 4))
-                if amount is not None and key not in seen:
-                    seen.add(key)
-                    charges.append({"label": label, "amount": amount})
+                if amount is not None:
+                    key = ("ÉCO-CONTRIBUTION", round(amount, 4))
+                    if key not in seen:
+                        seen.add(key)
+                        charges.append({"label": "ÉCO-CONTRIBUTION", "amount": amount})
                 continue
 
-        if m:
-            amount = fr_float(m.group(1))
-            key = (label, round(amount or 0, 4))
-            if amount is not None and key not in seen:
-                seen.add(key)
-                charges.append({"label": label, "amount": amount})
+            # Ligne récapitulative, ex. PUM : Eco contribution : 2,45 EUR
+            m = re.search(
+                r"(?:eco|éco)\s*contribution\s*[:.]?\s*"
+                r"([0-9][0-9 .]*[,.][0-9]{2,4})\s*(?:eur|€)?",
+                line, flags=re.I
+            )
+            if m:
+                amount = fr_float(m.group(1))
+                if amount is not None:
+                    key = ("ÉCO-CONTRIBUTION", round(amount, 4))
+                    if key not in seen:
+                        seen.add(key)
+                        charges.append({"label": "ÉCO-CONTRIBUTION", "amount": amount})
+                continue
+
+        if re.search(r"\bsurcharge\s+[ée]nergie\b", low):
+            m = re.search(
+                r"surcharge\s+[ée]nergie\s*[:.]?\s*"
+                r"([0-9][0-9 .]*[,.][0-9]{2,4})\s*(?:eur|€)?",
+                line, flags=re.I
+            )
+            if m:
+                amount = fr_float(m.group(1))
+                if amount is not None:
+                    key = ("SURCHARGE ÉNERGIE", round(amount, 4))
+                    if key not in seen:
+                        seen.add(key)
+                        charges.append({"label": "SURCHARGE ÉNERGIE", "amount": amount})
 
     return charges
 
