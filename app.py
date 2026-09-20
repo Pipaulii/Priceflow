@@ -73,25 +73,10 @@ div[data-baseweb="tab-highlight"] {
 </div>
 """, unsafe_allow_html=True)
 
-HISTORY_FILE = Path("extracteur_history.json")
-
-def load_history():
-    try:
-        if HISTORY_FILE.exists():
-            data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
-            return data if isinstance(data, list) else []
-    except Exception:
-        pass
-    return []
-
-def save_history(items):
-    try:
-        HISTORY_FILE.write_text(json.dumps(items[:500], ensure_ascii=False, indent=2), encoding="utf-8")
-    except Exception:
-        pass
-
 if "history" not in st.session_state:
-    st.session_state.history = load_history()
+    st.session_state.history = []
+if "history_loaded" not in st.session_state:
+    st.session_state.history_loaded = False
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 if "saved_signature" not in st.session_state:
@@ -1070,6 +1055,99 @@ def _supabase_request(path, payload=None, access_token=None):
     except Exception as exc:
         return None, f"Connexion impossible à Supabase : {exc}"
 
+
+def _supabase_rest(method, table, access_token, payload=None, query="", prefer=None):
+    url, key = _supabase_config()
+    if not url or not key:
+        return None, "Configuration Supabase absente."
+    headers = {"apikey": key, "Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    if prefer:
+        headers["Prefer"] = prefer
+    data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(f"{url}/rest/v1/{table}{query}", data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            raw = response.read().decode("utf-8")
+            return json.loads(raw) if raw else {}, None
+    except urllib.error.HTTPError as exc:
+        try:
+            info = json.loads(exc.read().decode("utf-8"))
+            msg = info.get("message") or info.get("hint") or info.get("details") or str(exc)
+        except Exception:
+            msg = str(exc)
+        return None, msg
+    except Exception as exc:
+        return None, str(exc)
+
+def _token():
+    return (st.session_state.get("pf_session") or {}).get("access_token")
+
+def is_admin():
+    try:
+        admin_email = str(st.secrets.get("ADMIN_EMAIL", "")).strip().lower()
+    except Exception:
+        admin_email = ""
+    email = str((st.session_state.get("pf_user") or {}).get("email", "")).strip().lower()
+    return bool(admin_email and email == admin_email)
+
+def load_cloud_history(force=False):
+    if st.session_state.get("history_loaded") and not force:
+        return
+    tok = _token()
+    if not tok:
+        return
+    data, err = _supabase_rest("GET", "documents", tok, query="?select=id,created_at,supplier,document_number,line_count,total_ht,total_extracted,difference,file_name&order=created_at.desc&limit=500")
+    if err:
+        st.session_state.history = []
+        st.session_state.history_error = err
+    else:
+        def fm(v): return fmt_money(v) if v is not None else "—"
+        st.session_state.history = [{
+            "Date": (x.get("created_at") or "").replace("T", " ")[:16],
+            "Fournisseur": x.get("supplier") or "—", "N° document": x.get("document_number") or "—",
+            "Lignes": x.get("line_count") or 0, "Total HT BL": fm(x.get("total_ht")),
+            "Total extrait": fm(x.get("total_extracted")), "Écart": fm(x.get("difference")),
+            "Fichier": x.get("file_name") or "—"
+        } for x in (data or [])]
+        st.session_state.history_error = None
+    st.session_state.history_loaded = True
+
+def upload_pdf_to_storage(pdf_bytes, filename, user_id, access_token):
+    url, key = _supabase_config()
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", filename)
+    path = f"{user_id}/{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{safe}"
+    headers = {"apikey": key, "Authorization": f"Bearer {access_token}", "Content-Type": "application/pdf", "x-upsert": "false"}
+    req = urllib.request.Request(f"{url}/storage/v1/object/priceflow-documents/{path}", data=pdf_bytes, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            response.read()
+        return path, None
+    except Exception as exc:
+        return None, str(exc)
+
+def save_document_cloud(uploaded, supplier, doc_number, total_ht, total_extrait, ecart, rows):
+    tok = _token(); user = st.session_state.get("pf_user") or {}; uid = user.get("id")
+    if not tok or not uid:
+        return False, "Session utilisateur absente."
+    storage_path, storage_err = upload_pdf_to_storage(uploaded.getvalue(), uploaded.name, uid, tok)
+    payload = {"user_id": uid, "supplier": supplier, "document_number": doc_number, "file_name": uploaded.name,
+               "storage_path": storage_path, "line_count": len(rows), "total_ht": total_ht,
+               "total_extracted": total_extrait, "difference": ecart}
+    docs, err = _supabase_rest("POST", "documents", tok, payload=payload, prefer="return=representation")
+    if err:
+        return False, err
+    doc_id = docs[0].get("id") if isinstance(docs, list) and docs else None
+    if doc_id:
+        lines=[]
+        for r in rows:
+            lines.append({"document_id": doc_id, "user_id": uid, "designation": str(r.get("Désignation", "")),
+                          "quantity": float(r.get("Quantité") or 0), "unit_price": float(r.get("Prix unitaire") or 0), "supplier": supplier})
+        if lines:
+            _, lerr = _supabase_rest("POST", "price_lines", tok, payload=lines, prefer="return=minimal")
+            if lerr: return True, f"Document enregistré, mais lignes prix non enregistrées : {lerr}"
+    st.session_state.history_loaded = False
+    return True, ("PDF non archivé dans Storage, mais données enregistrées." if storage_err else None)
+
 def signup_user(email, password):
     return _supabase_request(
         "/auth/v1/signup",
@@ -1166,6 +1244,7 @@ def require_login():
     st.stop()
 
 require_login()
+load_cloud_history()
 
 
 tab_achats, tab_location, tab_compare, tab_account = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations", "⚖️ Comparatif", "👤 Mon compte"])
@@ -1340,9 +1419,13 @@ with tab_achats:
                         "Écart": fmt_money(ecart),
                         "Fichier": uploaded.name,
                     }
-                    st.session_state.history.insert(0, entry)
-                    st.session_state.history = st.session_state.history[:500]
-                    save_history(st.session_state.history)
+                    ok, cloud_msg = save_document_cloud(uploaded, supplier, doc_number, total_ht, total_extrait, ecart, export_rows)
+                    if ok:
+                        load_cloud_history(force=True)
+                        if cloud_msg:
+                            st.info(cloud_msg)
+                    else:
+                        st.warning(f"Historique Supabase non enregistré : {cloud_msg}")
                     st.session_state.saved_signature = signature
             else:
                 st.warning("Aucune ligne article reconnue sur ce document. Le format devra être ajouté à l'extracteur.")
@@ -1621,10 +1704,8 @@ with st.expander("Historique de contrôle", expanded=False):
         st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True, hide_index=True)
         c1, c2 = st.columns([1, 5])
         with c1:
-            if st.button("Effacer l'historique"):
-                st.session_state.history = []
-                save_history([])
-                st.session_state.saved_signature = None
+            if st.button("↻ Actualiser"):
+                load_cloud_history(force=True)
                 st.rerun()
         with c2:
             hist_csv = pd.DataFrame(st.session_state.history).to_csv(index=False, sep=";").encode("utf-8-sig")
@@ -1654,13 +1735,26 @@ with tab_account:
     if last_sign_in:
         st.caption(f"Dernière connexion : {last_sign_in.replace('T', ' ')[:19]}")
 
-    st.info(
-        "L'historique permanent des devis et le stockage des fichiers dans votre compte "
-        "arriveront à l'étape suivante. Cette version met en place l'inscription, "
-        "la connexion et l'espace personnel."
-    )
+    st.success("Historique Supabase actif : vos documents et lignes de prix sont rattachés à votre compte.")
+    st.metric("Documents enregistrés", len(st.session_state.history))
+
+    if is_admin():
+        st.divider()
+        st.subheader("🛡️ Administration PriceFlow")
+        tok = _token()
+        docs, derr = _supabase_rest("GET", "documents", tok, query="?select=created_at,user_id,supplier,document_number,line_count,total_ht,file_name&order=created_at.desc&limit=1000")
+        if derr:
+            st.warning(f"Administration non disponible : {derr}")
+        else:
+            adf = pd.DataFrame(docs or [])
+            a1, a2, a3 = st.columns(3)
+            a1.metric("Documents (tous utilisateurs)", len(adf))
+            a2.metric("Utilisateurs actifs", adf["user_id"].nunique() if not adf.empty and "user_id" in adf else 0)
+            a3.metric("Fournisseurs", adf["supplier"].nunique() if not adf.empty and "supplier" in adf else 0)
+            if not adf.empty:
+                st.dataframe(adf, use_container_width=True, hide_index=True)
 
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
 
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V16</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17</div>', unsafe_allow_html=True)
