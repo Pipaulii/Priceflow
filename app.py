@@ -10,7 +10,7 @@ from pypdf import PdfReader
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Extracteur PDF", page_icon="📄", layout="wide")
+st.set_page_config(page_title="PriceFlow", page_icon="📄", layout="wide")
 
 st.markdown("""
 <style>
@@ -32,8 +32,8 @@ div[data-testid="stMetric"] {
 }
 </style>
 <div class="hero">
-  <h1>Extracteur PDF</h1>
-  <p>Extraction automatique des documents fournisseurs vers Excel</p>
+  <h1>PriceFlow</h1>
+  <p>Analyse & comparaison des achats</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1453,4 +1453,4 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · V14.5</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V15</div>', unsafe_allow_html=True)
