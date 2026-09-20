@@ -2,6 +2,8 @@ import io
 import json
 import re
 import unicodedata
+import urllib.request
+import urllib.error
 from datetime import datetime
 from pathlib import Path
 
@@ -27,16 +29,7 @@ st.markdown("""
         linear-gradient(135deg, #111827 0%, #101522 58%, #0d111a 100%);
     box-shadow: inset 0 0 30px rgba(0,105,255,.035), 0 8px 28px rgba(0,0,0,.16);
 }
-.hero::after {
-    content: "";
-    position: absolute;
-    left: 1.65rem;
-    bottom: 0;
-    width: 150px;
-    height: 2px;
-    background: linear-gradient(90deg, #1597ff, #3bc8ff, transparent);
-    box-shadow: 0 0 12px rgba(21,151,255,.55);
-}
+.hero::after { content:none; }
 .hero h1 {margin:0; font-size:2.45rem; font-weight:800; letter-spacing:-.045em; line-height:1.05;}
 .hero .price {color:#f5f7fb;}
 .hero .flow {
@@ -53,6 +46,26 @@ div[data-testid="stMetric"] {
     padding: 1rem;
     border-radius: 14px;
 }
+
+/* PriceFlow : navigation bleue cohérente avec la charte */
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #4da3ff !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] p {
+    color: #4da3ff !important;
+}
+div[data-baseweb="tab-highlight"] {
+    background-color: #2588ff !important;
+}
+.auth-card {
+    max-width: 620px;
+    margin: 1.2rem auto 0 auto;
+    padding: 1.35rem 1.45rem;
+    border: 1px solid rgba(128,128,128,.22);
+    border-radius: 16px;
+    background: rgba(255,255,255,.025);
+}
+
 </style>
 <div class="hero">
   <h1><span class="price">Price</span><span class="flow">Flow</span></h1>
@@ -1011,7 +1024,151 @@ def comparison_key(desc):
     return " | ".join(x for x in [family, angle, dimtxt, joint] if x)
 
 
-tab_achats, tab_location, tab_compare = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations", "⚖️ Comparatif"])
+
+# -------------------------------------------------------------------
+# SUPABASE AUTH — comptes PriceFlow
+# Les clés restent dans les Secrets Streamlit, jamais dans GitHub.
+# -------------------------------------------------------------------
+def _supabase_config():
+    try:
+        url = str(st.secrets["SUPABASE_URL"]).rstrip("/")
+        key = str(st.secrets["SUPABASE_KEY"])
+        return url, key
+    except Exception:
+        return None, None
+
+def _supabase_request(path, payload=None, access_token=None):
+    url, key = _supabase_config()
+    if not url or not key:
+        return None, "Configuration Supabase absente dans les Secrets Streamlit."
+
+    headers = {
+        "apikey": key,
+        "Content-Type": "application/json",
+    }
+    headers["Authorization"] = f"Bearer {access_token or key}"
+
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        f"{url}{path}",
+        data=data,
+        headers=headers,
+        method="GET" if payload is None else "POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            raw = response.read().decode("utf-8")
+            return json.loads(raw) if raw else {}, None
+    except urllib.error.HTTPError as exc:
+        try:
+            raw = exc.read().decode("utf-8")
+            info = json.loads(raw)
+            msg = info.get("msg") or info.get("message") or info.get("error_description") or info.get("error")
+        except Exception:
+            msg = str(exc)
+        return None, msg or f"Erreur Supabase ({exc.code})"
+    except Exception as exc:
+        return None, f"Connexion impossible à Supabase : {exc}"
+
+def signup_user(email, password):
+    return _supabase_request(
+        "/auth/v1/signup",
+        {"email": email.strip().lower(), "password": password},
+    )
+
+def login_user(email, password):
+    return _supabase_request(
+        "/auth/v1/token?grant_type=password",
+        {"email": email.strip().lower(), "password": password},
+    )
+
+def get_current_user(access_token):
+    return _supabase_request("/auth/v1/user", access_token=access_token)
+
+def logout_priceflow():
+    st.session_state.pop("pf_session", None)
+    st.session_state.pop("pf_user", None)
+    st.rerun()
+
+def render_auth():
+    st.markdown('<div class="auth-card">', unsafe_allow_html=True)
+    st.subheader("Bienvenue sur PriceFlow")
+    st.caption("Connectez-vous pour accéder à votre espace et à vos outils PriceFlow.")
+
+    login_tab, signup_tab = st.tabs(["🔐 Se connecter", "✨ Créer un compte"])
+
+    with login_tab:
+        with st.form("pf_login_form"):
+            email = st.text_input("Adresse e-mail", key="pf_login_email")
+            password = st.text_input("Mot de passe", type="password", key="pf_login_password")
+            submitted = st.form_submit_button("Se connecter", use_container_width=True)
+        if submitted:
+            if not email or not password:
+                st.warning("Renseignez votre adresse e-mail et votre mot de passe.")
+            else:
+                result, error = login_user(email, password)
+                if error:
+                    st.error(f"Connexion impossible : {error}")
+                elif result and result.get("access_token"):
+                    st.session_state.pf_session = result
+                    st.session_state.pf_user = result.get("user", {})
+                    st.rerun()
+                else:
+                    st.error("Connexion impossible.")
+
+    with signup_tab:
+        with st.form("pf_signup_form"):
+            email = st.text_input("Adresse e-mail", key="pf_signup_email")
+            password = st.text_input(
+                "Mot de passe",
+                type="password",
+                key="pf_signup_password",
+                help="Utilisez au minimum 8 caractères.",
+            )
+            password2 = st.text_input("Confirmer le mot de passe", type="password", key="pf_signup_password2")
+            submitted = st.form_submit_button("Créer mon compte", use_container_width=True)
+
+        if submitted:
+            if not email or not password:
+                st.warning("Renseignez votre adresse e-mail et votre mot de passe.")
+            elif len(password) < 8:
+                st.warning("Le mot de passe doit contenir au moins 8 caractères.")
+            elif password != password2:
+                st.warning("Les deux mots de passe ne correspondent pas.")
+            else:
+                result, error = signup_user(email, password)
+                if error:
+                    st.error(f"Création impossible : {error}")
+                elif result and result.get("access_token"):
+                    st.session_state.pf_session = result
+                    st.session_state.pf_user = result.get("user", {})
+                    st.success("Compte créé. Vous êtes connecté.")
+                    st.rerun()
+                else:
+                    st.success(
+                        "Compte créé. Un e-mail de confirmation vient de vous être envoyé. "
+                        "Confirmez votre adresse puis revenez vous connecter à PriceFlow."
+                    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+def require_login():
+    session = st.session_state.get("pf_session")
+    if session and session.get("access_token"):
+        user, error = get_current_user(session["access_token"])
+        if not error and user:
+            st.session_state.pf_user = user
+            return True
+        st.session_state.pop("pf_session", None)
+        st.session_state.pop("pf_user", None)
+
+    render_auth()
+    st.stop()
+
+require_login()
+
+
+tab_achats, tab_location, tab_compare, tab_account = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations", "⚖️ Comparatif", "👤 Mon compte"])
 
 with tab_achats:
     st.subheader("📦 Achats / Fournisseurs")
@@ -1476,4 +1633,34 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V15.1</div>', unsafe_allow_html=True)
+
+with tab_account:
+    st.subheader("👤 Mon compte")
+    user = st.session_state.get("pf_user", {}) or {}
+    email = user.get("email", "—")
+    created_at = user.get("created_at", "")
+    last_sign_in = user.get("last_sign_in_at", "")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**Adresse e-mail**")
+        st.write(email)
+    with c2:
+        st.markdown("**Statut**")
+        st.success("Compte connecté")
+
+    if created_at:
+        st.caption(f"Compte créé : {created_at[:10]}")
+    if last_sign_in:
+        st.caption(f"Dernière connexion : {last_sign_in.replace('T', ' ')[:19]}")
+
+    st.info(
+        "L'historique permanent des devis et le stockage des fichiers dans votre compte "
+        "arriveront à l'étape suivante. Cette version met en place l'inscription, "
+        "la connexion et l'espace personnel."
+    )
+
+    if st.button("🚪 Se déconnecter", use_container_width=False):
+        logout_priceflow()
+
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V16</div>', unsafe_allow_html=True)
