@@ -6,3 +6,4 @@ openpyxl>=3.1
 xlsxwriter>=3.2
 
 pypdf>=5.0
+streamlit-cookies-controller==0.0.4

@@ -4,6 +4,7 @@ import re
 import unicodedata
 import urllib.request
 import urllib.error
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -11,8 +12,14 @@ import pdfplumber
 from pypdf import PdfReader
 import pandas as pd
 import streamlit as st
+from streamlit_cookies_controller import CookieController
 
 st.set_page_config(page_title="PriceFlow", page_icon="📄", layout="wide")
+
+# Session navigateur PriceFlow : survit aux F5, expire après 1 heure.
+cookie_controller = CookieController(key="priceflow_auth_cookie")
+PF_AUTH_COOKIE = "priceflow_access_token"
+PF_AUTH_MAX_AGE = 60 * 60
 
 st.markdown("""
 <style>
@@ -66,6 +73,10 @@ div[data-baseweb="tab-highlight"] {
     background: rgba(255,255,255,.025);
 }
 
+/* Masque le composant technique utilisé pour le cookie de session. */
+div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]) {
+    display: none !important;
+}
 </style>
 <div class="hero">
   <h1><span class="price">Price</span><span class="flow">Flow</span></h1>
@@ -1163,9 +1174,43 @@ def login_user(email, password):
 def get_current_user(access_token):
     return _supabase_request("/auth/v1/user", access_token=access_token)
 
+def _save_browser_session(result):
+    """Conserve uniquement le jeton Supabase dans le navigateur pendant 1 heure."""
+    token = (result or {}).get("access_token")
+    if token:
+        cookie_controller.set(
+            PF_AUTH_COOKIE, token, path="/", max_age=PF_AUTH_MAX_AGE,
+            secure=True, same_site="strict"
+        )
+
+def _clear_browser_session():
+    try:
+        cookie_controller.remove(PF_AUTH_COOKIE)
+    except Exception:
+        pass
+
+def _restore_browser_session():
+    """Restaure la connexion après F5 si le jeton navigateur est encore valide."""
+    try:
+        token = cookie_controller.get(PF_AUTH_COOKIE)
+    except Exception:
+        token = None
+    if not token:
+        return False
+    user, error = get_current_user(token)
+    if error or not user:
+        _clear_browser_session()
+        return False
+    st.session_state.pf_session = {"access_token": token}
+    st.session_state.pf_user = user
+    return True
+
 def logout_priceflow():
+    _clear_browser_session()
     st.session_state.pop("pf_session", None)
     st.session_state.pop("pf_user", None)
+    st.session_state.history_loaded = False
+    time.sleep(0.25)
     st.rerun()
 
 def render_auth():
@@ -1190,6 +1235,8 @@ def render_auth():
                 elif result and result.get("access_token"):
                     st.session_state.pf_session = result
                     st.session_state.pf_user = result.get("user", {})
+                    _save_browser_session(result)
+                    time.sleep(0.25)
                     st.rerun()
                 else:
                     st.error("Connexion impossible.")
@@ -1220,7 +1267,9 @@ def render_auth():
                 elif result and result.get("access_token"):
                     st.session_state.pf_session = result
                     st.session_state.pf_user = result.get("user", {})
+                    _save_browser_session(result)
                     st.success("Compte créé. Vous êtes connecté.")
+                    time.sleep(0.25)
                     st.rerun()
                 else:
                     st.success(
@@ -1239,6 +1288,12 @@ def require_login():
             return True
         st.session_state.pop("pf_session", None)
         st.session_state.pop("pf_user", None)
+        _clear_browser_session()
+
+    # Après une actualisation Streamlit, session_state est neuf :
+    # on restaure alors le jeton conservé dans le navigateur.
+    if _restore_browser_session():
+        return True
 
     render_auth()
     st.stop()
@@ -1757,4 +1812,4 @@ with tab_account:
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
 
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17.1</div>', unsafe_allow_html=True)
