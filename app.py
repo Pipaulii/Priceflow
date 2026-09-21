@@ -23,59 +23,102 @@ PF_AUTH_MAX_AGE = 60 * 60
 
 st.markdown("""
 <style>
-.block-container {max-width: 1450px; padding-top: 2rem;}
-.hero {
-    position: relative;
-    overflow: hidden;
-    padding: 1.45rem 1.65rem;
-    border: 1px solid rgba(45,145,255,.30);
-    border-radius: 18px;
-    margin-bottom: 1.2rem;
-    background:
-        radial-gradient(circle at 72% 10%, rgba(0,145,255,.13), transparent 34%),
-        linear-gradient(135deg, #111827 0%, #101522 58%, #0d111a 100%);
-    box-shadow: inset 0 0 30px rgba(0,105,255,.035), 0 8px 28px rgba(0,0,0,.16);
+:root {
+    color-scheme: dark !important;
+    --pf-bg: #070b12;
+    --pf-panel: #0d1420;
+    --pf-panel-2: #111b2a;
+    --pf-border: rgba(65, 139, 255, .22);
+    --pf-blue: #168BFF;
+    --pf-blue-2: #48C7FF;
+    --pf-text: #F5F7FB;
+    --pf-muted: #9AA8BA;
+    --pf-green: #31D17C;
 }
-.hero::after { content:none; }
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .stApp {
+    background: var(--pf-bg) !important;
+    color: var(--pf-text) !important;
+}
+[data-testid="stHeader"] { background: rgba(7,11,18,.92) !important; }
+[data-testid="stSidebar"] { background: #090f18 !important; }
+.block-container {max-width: 1450px; padding-top: 1.65rem; padding-bottom: 2rem;}
+
+.hero {
+    position: relative; overflow: hidden; padding: 1.45rem 1.65rem;
+    border: 1px solid rgba(45,145,255,.30); border-radius: 18px; margin-bottom: 1.2rem;
+    background: radial-gradient(circle at 72% 10%, rgba(0,145,255,.13), transparent 34%), #0d1420;
+    box-shadow: inset 0 0 30px rgba(0,105,255,.035), 0 8px 28px rgba(0,0,0,.22);
+}
 .hero h1 {margin:0; font-size:2.45rem; font-weight:800; letter-spacing:-.045em; line-height:1.05;}
 .hero .price {color:#f5f7fb;}
-.hero .flow {
-    background: linear-gradient(90deg, #48c7ff 0%, #1688ff 48%, #4f6dff 100%);
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    background-clip:text;
-    filter: drop-shadow(0 0 9px rgba(24,136,255,.22));
+.hero .flow {background:linear-gradient(90deg,#48c7ff 0%,#1688ff 48%,#4f6dff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 9px rgba(24,136,255,.22));}
+.hero p {margin:.48rem 0 0; color:#aeb8c8; opacity:.92;}
+.copyright {font-size:.82rem; color:#8190a3; margin-top:.75rem;}
+
+/* Textes */
+h1,h2,h3,h4,h5,h6,p,label,[data-testid="stMarkdownContainer"] { color: var(--pf-text); }
+[data-testid="stCaptionContainer"], .stCaption { color: var(--pf-muted) !important; }
+
+/* Onglets : bleu PriceFlow, jamais rouge */
+button[data-baseweb="tab"] { color:#9aa8ba !important; }
+button[data-baseweb="tab"] p { color:inherit !important; }
+button[data-baseweb="tab"]:hover { color:#c9e3ff !important; background:rgba(22,139,255,.055) !important; }
+button[data-baseweb="tab"][aria-selected="true"],
+button[data-baseweb="tab"][aria-selected="true"] p { color:var(--pf-blue-2) !important; font-weight:700 !important; }
+div[data-baseweb="tab-highlight"] { background-color:var(--pf-blue) !important; height:3px !important; }
+
+/* Champs de saisie */
+[data-baseweb="input"] > div,
+[data-baseweb="base-input"],
+.stTextInput input,
+.stNumberInput input,
+.stTextArea textarea {
+    background:#0b1320 !important; color:var(--pf-text) !important;
+    border-color:rgba(118,145,178,.28) !important;
 }
-.hero p {margin:.48rem 0 0 0; color:#aeb8c8; opacity:.92;}
-.copyright {font-size:.82rem; opacity:.58; margin-top:.55rem;}
-div[data-testid="stMetric"] {
-    border: 1px solid rgba(128,128,128,.22);
-    padding: 1rem;
-    border-radius: 14px;
+.stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {
+    border-color:var(--pf-blue) !important; box-shadow:0 0 0 1px var(--pf-blue) !important;
+}
+input::placeholder, textarea::placeholder { color:#708095 !important; }
+
+/* Boutons */
+.stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {
+    border-radius:10px !important; border:1px solid rgba(22,139,255,.42) !important;
+    background:#101a29 !important; color:#dcecff !important;
+}
+.stButton > button:hover, .stFormSubmitButton > button:hover, .stDownloadButton > button:hover {
+    border-color:var(--pf-blue) !important; color:#fff !important; background:#14243a !important;
+}
+button[kind="primary"], .stFormSubmitButton button[kind="primary"], .stDownloadButton button[kind="primary"] {
+    background:linear-gradient(135deg,#1478e8,#168bff) !important; color:white !important; border-color:#2a96ff !important;
 }
 
-/* PriceFlow : navigation bleue cohérente avec la charte */
-button[data-baseweb="tab"][aria-selected="true"] {
-    color: #4da3ff !important;
+/* Cartes / métriques */
+div[data-testid="stMetric"] {
+    background:linear-gradient(180deg,rgba(17,27,42,.96),rgba(12,20,32,.96));
+    border:1px solid var(--pf-border); padding:1rem; border-radius:14px;
+    box-shadow:0 8px 24px rgba(0,0,0,.14);
 }
-button[data-baseweb="tab"][aria-selected="true"] p {
-    color: #4da3ff !important;
-}
-div[data-baseweb="tab-highlight"] {
-    background-color: #2588ff !important;
-}
-.auth-card {
-    max-width: 620px;
-    margin: 1.2rem auto 0 auto;
-    padding: 1.35rem 1.45rem;
-    border: 1px solid rgba(128,128,128,.22);
-    border-radius: 16px;
-    background: rgba(255,255,255,.025);
-}
+div[data-testid="stMetricValue"] { color:#f7fbff !important; }
+.auth-card {max-width:620px;margin:1.2rem auto 0;padding:1.35rem 1.45rem;border:1px solid var(--pf-border);border-radius:16px;background:#0d1420;box-shadow:0 18px 45px rgba(0,0,0,.22);}
+
+/* Upload, tableaux, expanders */
+[data-testid="stFileUploaderDropzone"] {background:#0c1522 !important;border:1px dashed rgba(72,199,255,.38) !important;border-radius:14px !important;}
+[data-testid="stDataFrame"], [data-testid="stTable"] {border:1px solid rgba(65,139,255,.16);border-radius:12px;overflow:hidden;}
+[data-testid="stExpander"] {background:#0d1420 !important;border:1px solid rgba(65,139,255,.18) !important;border-radius:12px !important;}
+
+/* Alertes : on garde le rouge uniquement pour les vraies erreurs */
+[data-testid="stAlert"] {border-radius:12px !important;}
 
 /* Masque le composant technique utilisé pour le cookie de session. */
-div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]) {
-    display: none !important;
+div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]) {display:none !important;}
+
+@media (max-width: 768px) {
+    .block-container {padding-top:1rem; padding-left:1rem; padding-right:1rem;}
+    .hero {padding:1.15rem 1.1rem; border-radius:15px;}
+    .hero h1 {font-size:2rem;}
+    .hero p {font-size:.92rem;}
+    button[data-baseweb="tab"] {padding-left:.55rem !important; padding-right:.55rem !important;}
 }
 </style>
 <div class="hero">
@@ -1812,4 +1855,4 @@ with tab_account:
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
 
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17.1</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17.2</div>', unsafe_allow_html=True)
