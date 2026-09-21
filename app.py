@@ -35,13 +35,10 @@ st.markdown("""
     --pf-muted: #9AA8BA;
     --pf-green: #31D17C;
 }
-html, body, #root, [data-testid="stApp"], [data-testid="stAppViewContainer"], [data-testid="stMain"], .stApp, .main {
-    background-color: var(--pf-bg) !important;
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .stApp {
     background: var(--pf-bg) !important;
     color: var(--pf-text) !important;
 }
-[data-testid="stAppViewContainer"] > .main, section.main, main { background: var(--pf-bg) !important; }
-[data-testid="stBottomBlockContainer"], [data-testid="stBottom"] { background: var(--pf-bg) !important; }
 [data-testid="stHeader"] { background: rgba(7,11,18,.92) !important; }
 [data-testid="stSidebar"] { background: #090f18 !important; }
 .block-container {max-width: 1450px; padding-top: 1.65rem; padding-bottom: 2rem;}
@@ -84,15 +81,6 @@ div[data-baseweb="tab-highlight"] { background-color:var(--pf-blue) !important; 
 }
 input::placeholder, textarea::placeholder { color:#708095 !important; }
 
-/* Composants BaseWeb/Streamlit qui peuvent reprendre le thème clair du navigateur */
-[data-baseweb="select"] > div, [data-baseweb="popover"], [role="listbox"],
-[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
-    background:#0b1320 !important; color:var(--pf-text) !important;
-}
-[data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] {
-    background:transparent !important;
-}
-
 /* Boutons */
 .stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {
     border-radius:10px !important; border:1px solid rgba(22,139,255,.42) !important;
@@ -132,6 +120,9 @@ div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_control
     .hero p {font-size:.92rem;}
     button[data-baseweb="tab"] {padding-left:.55rem !important; padding-right:.55rem !important;}
 }
+
+/* Comparatif PriceFlow V17.4 */
+.pf-compare-head{margin:.25rem 0 1.15rem}.pf-compare-title{font-size:2rem;font-weight:800;letter-spacing:-.025em}.pf-compare-sub{color:#aab8ca;margin-top:.25rem;font-size:1.02rem}.pf-section-title{font-size:1.15rem;font-weight:800;margin:.25rem 0 .65rem}.pf-supplier-card{min-height:128px;background:linear-gradient(145deg,#111c2c,#0b1421);border:1px solid rgba(80,145,220,.28);border-radius:14px;padding:1.05rem 1.15rem;margin:.35rem 0 1rem;box-shadow:0 10px 26px rgba(0,0,0,.2)}.pf-supplier-name{font-size:1.18rem;font-weight:800;color:#f7fbff}.pf-supplier-meta,.pf-supplier-lines{color:#8fa1b7;font-size:.82rem;margin-top:.22rem}.pf-supplier-total{font-size:1.42rem;font-weight:800;color:#47a7ff;margin-top:.55rem}.pf-kpi{min-height:116px;background:#0d1725;border:1px solid rgba(68,119,180,.3);border-radius:13px;padding:1rem 1.15rem;margin:.1rem 0 1rem}.pf-kpi-green{border-color:rgba(49,209,124,.55);background:linear-gradient(145deg,rgba(11,54,43,.7),#0d1725)}.pf-kpi-label{font-weight:700;color:#cbd7e7}.pf-kpi-value{font-size:1.5rem;font-weight:800;margin-top:.32rem}.pf-kpi-note{color:#8fa1b7;font-size:.82rem;margin-top:.2rem}.pf-green{color:#48e18d!important}.pf-saving{border:1px solid rgba(49,209,124,.58);background:linear-gradient(120deg,rgba(10,61,43,.68),rgba(10,25,35,.8));border-radius:13px;padding:1.05rem 1.25rem;margin:1rem 0}.pf-saving-label{color:#7ce9aa}.pf-saving-value{color:#55e994;font-size:1.35rem;font-weight:800;margin-top:.25rem}.pf-saving-note{color:#a5b6c7;font-size:.85rem;margin-top:.15rem}
 </style>
 <div class="hero">
   <h1><span class="price">Price</span><span class="flow">Flow</span></h1>
@@ -1334,13 +1325,6 @@ def render_auth():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-def new_document():
-    """Réinitialise proprement l'import Achats/Fournisseurs."""
-    st.session_state.uploader_key += 1
-    st.session_state.saved_signature = None
-    st.rerun()
-
-
 def require_login():
     session = st.session_state.get("pf_session")
     if session and session.get("access_token"):
@@ -1653,11 +1637,10 @@ with tab_location:
 
 
 with tab_compare:
-    st.subheader("⚖️ Comparatif")
-    st.caption("Déposez plusieurs devis fournisseurs pour comparer les articles équivalents et leurs écarts de prix.")
+    st.markdown("""<div class="pf-compare-head"><div class="pf-compare-title">⚖ Comparatif fournisseurs</div><div class="pf-compare-sub">Comparez vos devis et identifiez automatiquement les meilleurs prix</div></div>""", unsafe_allow_html=True)
 
     compare_files = st.file_uploader(
-        "Déposez 2 devis ou plus",
+        "➕ Ajouter des devis fournisseurs",
         type=["pdf"],
         accept_multiple_files=True,
         key="compare_pdfs",
@@ -1685,8 +1668,11 @@ with tab_compare:
                 "Total HT document": o["Total HT"],
                 "Articles détectés": len(o["Lignes"]),
             } for o in offers])
-            st.subheader("Synthèse des devis")
-            st.dataframe(summary, use_container_width=True, hide_index=True)
+            st.markdown('<div class="pf-section-title">Devis analysés</div>', unsafe_allow_html=True)
+            card_cols = st.columns(min(len(offers), 4))
+            for i, o in enumerate(offers):
+                with card_cols[i % len(card_cols)]:
+                    st.markdown(f"""<div class="pf-supplier-card"><div class="pf-supplier-name">{o['Fournisseur']}</div><div class="pf-supplier-meta">Devis {o['N° document']}</div><div class="pf-supplier-total">{fmt_money(o['Total HT'])}</div><div class="pf-supplier-lines">{len(o['Lignes'])} articles détectés</div></div>""", unsafe_allow_html=True)
 
             records = []
             for o in offers:
@@ -1757,11 +1743,15 @@ with tab_compare:
                     if savings:
                         nego_df = pd.DataFrame(savings)
                         potential = round(float(nego_df["💰 Écart total"].sum()), 2)
-                        st.success(
-                            f"💰 Économie potentielle sur les articles comparables : "
-                            f"{potential:,.2f} €".replace(",", " ").replace(".", ",")
-                        )
-                        st.subheader("Comparatif simplifié")
+                        avg_pct = float(nego_df["Écart %"].mean()) if not nego_df.empty else 0.0
+                        k1, k2, k3 = st.columns(3)
+                        with k1:
+                            st.markdown(f"""<div class="pf-kpi pf-kpi-green"><div class="pf-kpi-label">🏆 Meilleurs prix</div><div class="pf-kpi-value">{len(nego_df)} lignes</div><div class="pf-kpi-note">Mis en évidence automatiquement</div></div>""", unsafe_allow_html=True)
+                        with k2:
+                            st.markdown(f"""<div class="pf-kpi"><div class="pf-kpi-label">▥ Économie potentielle</div><div class="pf-kpi-value pf-green">{fmt_money(potential)}</div><div class="pf-kpi-note">Écart moyen {avg_pct:.1f}%</div></div>""", unsafe_allow_html=True)
+                        with k3:
+                            st.markdown(f"""<div class="pf-kpi"><div class="pf-kpi-label">▥ Analyse terminée</div><div class="pf-kpi-value">{len(offers)} devis</div><div class="pf-kpi-note">{len(nego_df)} lignes comparées</div></div>""", unsafe_allow_html=True)
+                        st.markdown('<div class="pf-section-title">Comparaison détaillée</div>', unsafe_allow_html=True)
                         st.dataframe(
                             nego_df,
                             use_container_width=True,
@@ -1775,6 +1765,7 @@ with tab_compare:
                             },
                         )
 
+                        st.markdown(f"""<div class="pf-saving"><div class="pf-saving-label">🌿 En choisissant les meilleurs prix</div><div class="pf-saving-value">Vous économisez {fmt_money(potential)}</div><div class="pf-saving-note">sur les articles comparables entre les devis importés</div></div>""", unsafe_allow_html=True)
                         with st.expander("Voir le détail complet"):
                             st.dataframe(comp_df, use_container_width=True, hide_index=True)
                     else:
@@ -1802,7 +1793,7 @@ with tab_compare:
                             ws.set_column("D:H", 20, money_fmt)
                     out_cmp.seek(0)
                     st.download_button(
-                        "⬇ Télécharger le comparatif Excel",
+                        "⇩ Exporter en Excel",
                         data=out_cmp,
                         file_name="Comparatif_fournisseurs.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1874,4 +1865,4 @@ with tab_account:
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
 
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17.3</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17.2</div>', unsafe_allow_html=True)

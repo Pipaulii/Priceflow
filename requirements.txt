@@ -1,6 +1,6 @@
 streamlit
+pandas
 pdfplumber
 pypdf
-pandas
-openpyxl
+xlsxwriter
 streamlit-cookies-controller
