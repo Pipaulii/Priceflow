@@ -35,10 +35,13 @@ st.markdown("""
     --pf-muted: #9AA8BA;
     --pf-green: #31D17C;
 }
-html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .stApp {
+html, body, #root, [data-testid="stApp"], [data-testid="stAppViewContainer"], [data-testid="stMain"], .stApp, .main {
+    background-color: var(--pf-bg) !important;
     background: var(--pf-bg) !important;
     color: var(--pf-text) !important;
 }
+[data-testid="stAppViewContainer"] > .main, section.main, main { background: var(--pf-bg) !important; }
+[data-testid="stBottomBlockContainer"], [data-testid="stBottom"] { background: var(--pf-bg) !important; }
 [data-testid="stHeader"] { background: rgba(7,11,18,.92) !important; }
 [data-testid="stSidebar"] { background: #090f18 !important; }
 .block-container {max-width: 1450px; padding-top: 1.65rem; padding-bottom: 2rem;}
@@ -80,6 +83,15 @@ div[data-baseweb="tab-highlight"] { background-color:var(--pf-blue) !important; 
     border-color:var(--pf-blue) !important; box-shadow:0 0 0 1px var(--pf-blue) !important;
 }
 input::placeholder, textarea::placeholder { color:#708095 !important; }
+
+/* Composants BaseWeb/Streamlit qui peuvent reprendre le thème clair du navigateur */
+[data-baseweb="select"] > div, [data-baseweb="popover"], [role="listbox"],
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+    background:#0b1320 !important; color:var(--pf-text) !important;
+}
+[data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] {
+    background:transparent !important;
+}
 
 /* Boutons */
 .stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {
@@ -1322,6 +1334,13 @@ def render_auth():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+def new_document():
+    """Réinitialise proprement l'import Achats/Fournisseurs."""
+    st.session_state.uploader_key += 1
+    st.session_state.saved_signature = None
+    st.rerun()
+
+
 def require_login():
     session = st.session_state.get("pf_session")
     if session and session.get("access_token"):
@@ -1855,4 +1874,4 @@ with tab_account:
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
 
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17.2</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17.3</div>', unsafe_allow_html=True)
