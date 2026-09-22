@@ -1,6 +1,7 @@
 import io
 import html
 import json
+import hashlib
 import re
 import unicodedata
 import urllib.request
@@ -51,8 +52,10 @@ h3{font-size:1.75rem!important;font-weight:800!important;letter-spacing:-.02em!i
 .pf-title{display:flex;align-items:center;gap:14px;margin:16px 0 0}.pf-title .ico{font-size:2.45rem;color:#0b8cff}.pf-title h2{margin:0;font-size:2rem;font-weight:820;letter-spacing:-.025em}.pf-sub{color:#42566d;margin:1px 0 22px 58px;font-size:1rem}
 .pf-supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:12px 0 18px}.pf-supplier-card{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:16px;box-shadow:0 4px 14px rgba(31,55,84,.04)}.pf-supplier-name{font-size:1.05rem;font-weight:800;color:#0b1f33}.pf-supplier-meta{font-size:.82rem;color:#6b7f97;margin-top:5px}.pf-best-card{border-color:#77d7ad;background:#f2fff9}.pf-best-card .pf-supplier-name{color:#087a4d}
 .pf-table-wrap{overflow-x:auto;border:1px solid #d7e2ee;border-radius:12px;background:#fff;margin:12px 0 16px}.pf-table{border-collapse:collapse;width:100%;min-width:1100px;font-size:.88rem}.pf-table th,.pf-table td{border-right:1px solid #e2e9f1;border-bottom:1px solid #e8eef4;padding:10px 9px;white-space:nowrap;text-align:right}.pf-table th{background:#f2f6fa;color:#23374d;font-weight:700}.pf-table th.left,.pf-table td.left{text-align:left}.pf-table .supplier-head{background:#eaf4ff;color:#096ecf;text-align:center}.pf-table .best-head{background:#e9fbf3;color:#087a4d;text-align:center}.pf-table td.best{background:#effcf6;color:#087a4d;font-weight:800}.pf-table tr.total td{font-weight:800;background:#f6f9fc}.pf-table tr.total td.best{background:#e6f9f0}.pf-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0 18px}.pf-note{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:16px}.pf-note.green{border-color:#72d5a9;background:#f2fff9}.pf-note strong{font-size:1.15rem}.pf-note.green strong{color:#087a4d}.pf-chart-note{background:#fff;border:1px solid #dbe5ef;border-bottom:0;border-radius:13px 13px 0 0;padding:12px 16px;color:#62748a;margin-top:10px}
+
+.pf-market-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0 18px}.pf-market-kpi{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:15px 17px;box-shadow:0 4px 14px rgba(31,55,84,.035)}.pf-market-kpi .n{font-size:1.7rem;font-weight:850;color:#071b33}.pf-market-kpi .l{font-size:.84rem;color:#62748a;margin-top:3px}.pf-finding{background:#fff;border:1px solid #dbe5ef;border-left:5px solid #0b8cff;border-radius:12px;padding:16px 18px;margin:10px 0}.pf-finding.warn{border-left-color:#f59e0b}.pf-finding.danger{border-left-color:#e34b4b}.pf-finding.link{border-left-color:#7c5cff}.pf-finding.ok{border-left-color:#12a56a}.pf-finding h4{margin:0 0 7px;font-size:1.05rem}.pf-finding p{margin:4px 0;color:#40556c}.pf-source{font-size:.82rem;color:#6d8095;margin-top:8px}.pf-source-box{background:#f6f9fc;border:1px solid #dce6ef;border-radius:9px;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.82rem;white-space:pre-wrap;color:#203449}.pf-doc-chip{display:inline-block;background:#eef6ff;color:#0b66bd;border:1px solid #c9e3ff;border-radius:999px;padding:5px 10px;margin:3px 5px 3px 0;font-size:.78rem}.pf-ai-note{background:#eef7ff;border:1px solid #b9ddff;border-radius:11px;padding:12px 15px;color:#31506e;margin:8px 0 16px}
 @media(max-width:1050px){[data-baseweb="tab-list"]{margin-left:250px!important;width:calc(100% - 270px)!important;gap:2px!important}button[data-baseweb="tab"]{padding:0 8px!important}button[data-baseweb="tab"]:last-child:before{display:none}}
-@media(max-width:768px){.block-container{padding:.7rem}.hero{height:auto;padding:15px}.hero h1{font-size:1.8rem}.hero p{font-size:.82rem}[data-baseweb="tab-list"]{position:static!important;top:auto!important;margin:0!important;width:100%!important;height:auto!important;overflow-x:auto!important}button[data-baseweb="tab"]{height:52px!important}.pf-bottom{grid-template-columns:1fr}.pf-sub{margin-left:0}}
+@media(max-width:768px){.pf-market-grid{grid-template-columns:1fr 1fr}.block-container{padding:.7rem}.hero{height:auto;padding:15px}.hero h1{font-size:1.8rem}.hero p{font-size:.82rem}[data-baseweb="tab-list"]{position:static!important;top:auto!important;margin:0!important;width:100%!important;height:auto!important;overflow-x:auto!important}button[data-baseweb="tab"]{height:52px!important}.pf-bottom{grid-template-columns:1fr}.pf-sub{margin-left:0}}
 </style>
 <div class="hero"><h1><span class="price">Price</span><span class="flow">Flow</span></h1><p>Analyse & comparaison des achats</p></div>
 """, unsafe_allow_html=True)
@@ -756,6 +759,81 @@ def extract_pdf_text(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         return "\n".join((page.extract_text() or "") for page in pdf.pages)
 
+
+def market_pdf_pages(pdf_bytes):
+    """Extrait le texte page par page pour conserver une source vérifiable."""
+    pages=[]
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for i,page in enumerate(pdf.pages,1):
+            txt=(page.extract_text(x_tolerance=2,y_tolerance=3) or "").replace("\x00", "")
+            lines=[clean(x) for x in txt.splitlines() if clean(x)]
+            pages.append({"page":i,"text":"\n".join(lines),"lines":lines})
+    return pages
+
+def _norm_source(s):
+    return re.sub(r"[^a-z0-9]+"," ",unicodedata.normalize("NFKD",str(s or "")).encode("ascii","ignore").decode().lower()).strip()
+
+def _source_verified(quote, page_text):
+    q=_norm_source(quote); t=_norm_source(page_text)
+    if len(q)<18: return False
+    if q in t: return True
+    # tolère une citation raccourcie : ses premiers mots doivent être réellement présents
+    words=q.split()
+    return len(words)>=8 and " ".join(words[:8]) in t
+
+def _response_text(payload):
+    if isinstance(payload,dict) and payload.get("output_text"):
+        return payload["output_text"]
+    parts=[]
+    for item in (payload.get("output",[]) if isinstance(payload,dict) else []):
+        for c in item.get("content",[]) or []:
+            if isinstance(c,dict) and c.get("text"): parts.append(c["text"])
+    return "\n".join(parts)
+
+def analyse_market_with_ai(documents):
+    api_key=st.secrets.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return None, "Clé OPENAI_API_KEY absente des Secrets Streamlit."
+    blocks=[]; page_index={}
+    for d in documents:
+        for pg in d["pages"]:
+            key=(d["name"],int(pg["page"])); page_index[key]=pg["text"]
+            blocks.append(f'=== DOCUMENT: {d["name"]} | PAGE: {pg["page"]} ===\n{pg["text"]}')
+    corpus="\n\n".join(blocks)
+    # Garde une marge confortable ; les dossiers énormes seront traités par lots dans une évolution ultérieure.
+    if len(corpus)>350000:
+        corpus=corpus[:350000]
+    instruction="""Tu es un assistant de revue de pièces marché spécialisé CVC, plomberie et génie climatique pour une entreprise de travaux. Analyse UNIQUEMENT le corpus fourni. Ne complète jamais avec tes connaissances. Recherche: prestations; équipements (chaufferie, chaudières, PAC, groupe froid, climatisation, CTA/VMC, ventilo-convecteurs, plomberie EF/ECS/EU/EV, condensats, fumisterie, GTB/régulation); matériaux et réseaux (acier, galva, inox, cuivre, multicouche, PER, PVC, PEHD), DN/diamètres, assemblages, calorifuge et supports; contraintes chantier; limites de prestations et interfaces avec GO, électricité, GTB, faux-plafonds, SSI et autres lots; divergences CCTP/DPGF; prestations du CCTP sans poste DPGF clairement identifiable; contradictions potentielles. Une absence de ligne DPGF distincte n'est PAS une erreur: catégorie points_verifier. Une contradiction doit avoir une preuve. Pour chaque constat, fournis une citation EXACTE copiée du corpus, son document, sa page et si possible le paragraphe. N'invente jamais une source. Retourne uniquement du JSON valide, sans markdown, sous la forme {"projet":"...","lot":"...","synthese":"...","findings":[{"category":"prestations|points_verifier|interfaces|incoherences","title":"...","analysis":"...","document":"nom exact","page":1,"section":"...","quote":"citation exacte"}]}. Maximum 35 constats, en privilégiant ceux utiles à un conducteur de travaux CVC/plomberie."""
+    payload={"model":"gpt-5.6-luna","input":[{"role":"system","content":instruction},{"role":"user","content":corpus}],"reasoning":{"effort":"medium"},"max_output_tokens":12000}
+    req=urllib.request.Request("https://api.openai.com/v1/responses",data=json.dumps(payload).encode("utf-8"),headers={"Authorization":f"Bearer {api_key}","Content-Type":"application/json"},method="POST")
+    try:
+        with urllib.request.urlopen(req,timeout=180) as resp: raw=json.loads(resp.read().decode("utf-8"))
+        txt=_response_text(raw).strip()
+        txt=re.sub(r"^```(?:json)?\s*|\s*```$","",txt,flags=re.I|re.S)
+        data=json.loads(txt)
+    except Exception as e:
+        return None, f"Analyse IA impossible : {e}"
+    valid=[]
+    for f in data.get("findings",[]):
+        try: key=(str(f.get("document","")),int(f.get("page",0)))
+        except Exception: continue
+        page_text=page_index.get(key,"")
+        if page_text and _source_verified(f.get("quote",""),page_text):
+            f["source_verified"]=True; valid.append(f)
+    data["findings"]=valid
+    return data, None
+
+def market_report_excel(data):
+    rows=[]
+    labels={"prestations":"Prestation identifiée","points_verifier":"Point à vérifier","interfaces":"Interface / limite","incoherences":"Incohérence potentielle"}
+    for f in data.get("findings",[]):
+        rows.append({"Catégorie":labels.get(f.get("category"),f.get("category")),"Sujet":f.get("title"),"Analyse":f.get("analysis"),"Document":f.get("document"),"Page":f.get("page"),"Paragraphe":f.get("section"),"Passage source exact":f.get("quote")})
+    out=io.BytesIO()
+    with pd.ExcelWriter(out,engine="xlsxwriter") as writer:
+        pd.DataFrame(rows).to_excel(writer,index=False,sheet_name="Analyse Marché")
+        ws=writer.sheets["Analyse Marché"]; ws.set_column("A:A",22); ws.set_column("B:B",35); ws.set_column("C:C",60); ws.set_column("D:D",38); ws.set_column("E:F",14); ws.set_column("G:G",90)
+    out.seek(0); return out
+
 def fmt_money(value):
     """Affiche un montant au format français."""
     if value is None:
@@ -1299,7 +1377,7 @@ require_login()
 load_cloud_history()
 
 
-tab_achats, tab_location, tab_compare, tab_account = st.tabs(["▣  Achats / Fournisseurs", "🏗  Locations", "⚖  Comparatif", "Mon compte ⌄"])
+tab_achats, tab_location, tab_compare, tab_market, tab_account = st.tabs(["▣  Achats / Fournisseurs", "🏗  Locations", "⚖  Comparatif", "📋  Analyse Marché", "Mon compte ⌄"])
 
 with tab_achats:
     st.subheader("📦 Achats / Fournisseurs")
@@ -1687,6 +1765,54 @@ with tab_compare:
                 else: st.warning("Aucune ligne exploitable pour la comparaison.")
 
 
+
+with tab_market:
+    st.markdown('<div class="pf-title"><span class="ico">📋</span><h2>Analyse Marché</h2></div><p class="pf-sub">Analyse CCTP, DPGF et pièces marché orientée CVC · Plomberie · Génie Climatique</p>', unsafe_allow_html=True)
+    st.markdown('<div class="pf-ai-note"><strong>Analyse traçable :</strong> PriceFlow ne conserve dans le rapport que les constats dont le passage source a été retrouvé dans la page du PDF. Les points ambigus sont présentés comme « à vérifier », jamais comme une erreur certaine.</div>', unsafe_allow_html=True)
+    market_files=st.file_uploader("Déposez les pièces marché (CCTP, DPGF, GTB, généralités…)",type=["pdf"],accept_multiple_files=True,key="market_pdfs")
+    if market_files:
+        chips=''.join(f'<span class="pf-doc-chip">{html.escape(f.name)}</span>' for f in market_files)
+        st.markdown(chips,unsafe_allow_html=True)
+        c1,c2=st.columns([4,1])
+        with c2:
+            launch=st.button("🔎 Analyser le marché",type="primary",use_container_width=True)
+        if launch:
+            if not st.secrets.get("OPENAI_API_KEY", ""):
+                st.error("L'analyse intelligente nécessite OPENAI_API_KEY dans les Secrets Streamlit. Le reste de PriceFlow continue de fonctionner normalement.")
+            else:
+                docs=[]
+                with st.spinner("Lecture des pièces marché et analyse CVC/Plomberie…"):
+                    for f in market_files:
+                        try: docs.append({"name":f.name,"pages":market_pdf_pages(f.getvalue())})
+                        except Exception as e: st.warning(f"{f.name} : lecture impossible ({e})")
+                    data,err=analyse_market_with_ai(docs) if docs else (None,"Aucun document lisible")
+                if err: st.error(err)
+                elif data:
+                    st.session_state.market_analysis=data
+                    track_usage("analyse_marche",{"documents":len(docs)})
+        data=st.session_state.get("market_analysis")
+        if data:
+            st.markdown(f'### {html.escape(str(data.get("projet") or "Analyse du marché"))}')
+            st.caption(f'Lot analysé : {data.get("lot") or "CVC / Plomberie"} · {len(market_files)} document(s) chargé(s)')
+            if data.get("synthese"): st.info(data["synthese"])
+            findings=data.get("findings",[])
+            cats=[("prestations","🟢","Prestations identifiées"),("points_verifier","🟠","Points à vérifier"),("interfaces","🔗","Interfaces / limites"),("incoherences","🔴","Incohérences potentielles")]
+            counts={k:sum(1 for f in findings if f.get("category")==k) for k,_,_ in cats}
+            st.markdown('<div class="pf-market-grid">'+''.join(f'<div class="pf-market-kpi"><div class="n">{ico} {counts[k]}</div><div class="l">{lab}</div></div>' for k,ico,lab in cats)+'</div>',unsafe_allow_html=True)
+            for cat,ico,label in cats:
+                subset=[f for f in findings if f.get("category")==cat]
+                if not subset: continue
+                st.markdown(f'### {ico} {label}')
+                for idx,f in enumerate(subset):
+                    cls={"prestations":"ok","points_verifier":"warn","interfaces":"link","incoherences":"danger"}.get(cat,"")
+                    st.markdown(f'<div class="pf-finding {cls}"><h4>{html.escape(str(f.get("title","Point relevé")))}</h4><p>{html.escape(str(f.get("analysis","")))}</p><div class="pf-source">📄 {html.escape(str(f.get("document","")))} · Page {f.get("page","—")} · {html.escape(str(f.get("section") or "paragraphe non identifié"))}</div></div>',unsafe_allow_html=True)
+                    with st.expander(f'📖 Voir le passage source — {f.get("title","Point relevé")}',expanded=False):
+                        st.caption(f'{f.get("document","")} · page {f.get("page","—")} · {f.get("section") or "paragraphe non identifié"}')
+                        st.markdown(f'<div class="pf-source-box">{html.escape(str(f.get("quote","")))}</div>',unsafe_allow_html=True)
+            report=market_report_excel(data)
+            st.download_button("⬇ Télécharger le rapport d’analyse",data=report,file_name="PriceFlow_Analyse_Marche.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",type="primary",use_container_width=True)
+
+
 st.divider()
 with st.expander("Historique de contrôle", expanded=False):
     if st.session_state.history:
@@ -1804,4 +1930,4 @@ with tab_account:
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
 
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V22</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow</div>', unsafe_allow_html=True)
