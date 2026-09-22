@@ -1,6 +1,0 @@
-streamlit
-pandas
-pdfplumber
-pypdf
-xlsxwriter
-streamlit-cookies-controller
