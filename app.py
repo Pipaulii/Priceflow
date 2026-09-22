@@ -1,4 +1,5 @@
 import io
+import html
 import json
 import re
 import unicodedata
@@ -23,108 +24,24 @@ PF_AUTH_MAX_AGE = 60 * 60
 
 st.markdown("""
 <style>
-:root {
-    color-scheme: dark !important;
-    --pf-bg: #070b12;
-    --pf-panel: #0d1420;
-    --pf-panel-2: #111b2a;
-    --pf-border: rgba(65, 139, 255, .22);
-    --pf-blue: #168BFF;
-    --pf-blue-2: #48C7FF;
-    --pf-text: #F5F7FB;
-    --pf-muted: #9AA8BA;
-    --pf-green: #31D17C;
-}
-html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .stApp {
-    background: var(--pf-bg) !important;
-    color: var(--pf-text) !important;
-}
-[data-testid="stHeader"] { background: rgba(7,11,18,.92) !important; }
-[data-testid="stSidebar"] { background: #090f18 !important; }
-.block-container {max-width: 1450px; padding-top: 1.65rem; padding-bottom: 2rem;}
-
-.hero {
-    position: relative; overflow: hidden; padding: 1.45rem 1.65rem;
-    border: 1px solid rgba(45,145,255,.30); border-radius: 18px; margin-bottom: 1.2rem;
-    background: radial-gradient(circle at 72% 10%, rgba(0,145,255,.13), transparent 34%), #0d1420;
-    box-shadow: inset 0 0 30px rgba(0,105,255,.035), 0 8px 28px rgba(0,0,0,.22);
-}
-.hero h1 {margin:0; font-size:2.45rem; font-weight:800; letter-spacing:-.045em; line-height:1.05;}
-.hero .price {color:#f5f7fb;}
-.hero .flow {background:linear-gradient(90deg,#48c7ff 0%,#1688ff 48%,#4f6dff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 9px rgba(24,136,255,.22));}
-.hero p {margin:.48rem 0 0; color:#aeb8c8; opacity:.92;}
-.copyright {font-size:.82rem; color:#8190a3; margin-top:.75rem;}
-
-/* Textes */
-h1,h2,h3,h4,h5,h6,p,label,[data-testid="stMarkdownContainer"] { color: var(--pf-text); }
-[data-testid="stCaptionContainer"], .stCaption { color: var(--pf-muted) !important; }
-
-/* Onglets : bleu PriceFlow, jamais rouge */
-button[data-baseweb="tab"] { color:#9aa8ba !important; }
-button[data-baseweb="tab"] p { color:inherit !important; }
-button[data-baseweb="tab"]:hover { color:#c9e3ff !important; background:rgba(22,139,255,.055) !important; }
-button[data-baseweb="tab"][aria-selected="true"],
-button[data-baseweb="tab"][aria-selected="true"] p { color:var(--pf-blue-2) !important; font-weight:700 !important; }
-div[data-baseweb="tab-highlight"] { background-color:var(--pf-blue) !important; height:3px !important; }
-
-/* Champs de saisie */
-[data-baseweb="input"] > div,
-[data-baseweb="base-input"],
-.stTextInput input,
-.stNumberInput input,
-.stTextArea textarea {
-    background:#0b1320 !important; color:var(--pf-text) !important;
-    border-color:rgba(118,145,178,.28) !important;
-}
-.stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {
-    border-color:var(--pf-blue) !important; box-shadow:0 0 0 1px var(--pf-blue) !important;
-}
-input::placeholder, textarea::placeholder { color:#708095 !important; }
-
-/* Boutons */
-.stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {
-    border-radius:10px !important; border:1px solid rgba(22,139,255,.42) !important;
-    background:#101a29 !important; color:#dcecff !important;
-}
-.stButton > button:hover, .stFormSubmitButton > button:hover, .stDownloadButton > button:hover {
-    border-color:var(--pf-blue) !important; color:#fff !important; background:#14243a !important;
-}
-button[kind="primary"], .stFormSubmitButton button[kind="primary"], .stDownloadButton button[kind="primary"] {
-    background:linear-gradient(135deg,#1478e8,#168bff) !important; color:white !important; border-color:#2a96ff !important;
-}
-
-/* Cartes / métriques */
-div[data-testid="stMetric"] {
-    background:linear-gradient(180deg,rgba(17,27,42,.96),rgba(12,20,32,.96));
-    border:1px solid var(--pf-border); padding:1rem; border-radius:14px;
-    box-shadow:0 8px 24px rgba(0,0,0,.14);
-}
-div[data-testid="stMetricValue"] { color:#f7fbff !important; }
-.auth-card {max-width:620px;margin:1.2rem auto 0;padding:1.35rem 1.45rem;border:1px solid var(--pf-border);border-radius:16px;background:#0d1420;box-shadow:0 18px 45px rgba(0,0,0,.22);}
-
-/* Upload, tableaux, expanders */
-[data-testid="stFileUploaderDropzone"] {background:#0c1522 !important;border:1px dashed rgba(72,199,255,.38) !important;border-radius:14px !important;}
-[data-testid="stDataFrame"], [data-testid="stTable"] {border:1px solid rgba(65,139,255,.16);border-radius:12px;overflow:hidden;}
-[data-testid="stExpander"] {background:#0d1420 !important;border:1px solid rgba(65,139,255,.18) !important;border-radius:12px !important;}
-
-/* Alertes : on garde le rouge uniquement pour les vraies erreurs */
-[data-testid="stAlert"] {border-radius:12px !important;}
-
-/* Masque le composant technique utilisé pour le cookie de session. */
-div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]) {display:none !important;}
-
-@media (max-width: 768px) {
-    .block-container {padding-top:1rem; padding-left:1rem; padding-right:1rem;}
-    .hero {padding:1.15rem 1.1rem; border-radius:15px;}
-    .hero h1 {font-size:2rem;}
-    .hero p {font-size:.92rem;}
-    button[data-baseweb="tab"] {padding-left:.55rem !important; padding-right:.55rem !important;}
-}
+:root{color-scheme:light!important;--pf-bg:#f6f9fd;--pf-panel:#fff;--pf-border:#d9e3ef;--pf-blue:#168bff;--pf-text:#0b1f33;--pf-muted:#64748b;--pf-green:#12a56a;}
+html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],.stApp{background:var(--pf-bg)!important;color:var(--pf-text)!important;}
+[data-testid="stHeader"]{background:rgba(246,249,253,.96)!important}.block-container{max-width:1450px;padding-top:1.2rem;padding-bottom:2rem}
+.hero{padding:1.3rem 1.55rem;border:1px solid #e3eaf2;border-radius:18px;margin-bottom:1.15rem;background:#fff;box-shadow:0 10px 30px rgba(31,55,84,.08)}
+.hero h1{margin:0;font-size:2.35rem;font-weight:800;letter-spacing:-.045em}.hero .price{color:#0b1f33}.hero .flow{color:#168bff}.hero p{margin:.42rem 0 0;color:#6b7f97}.copyright{font-size:.82rem;color:#8190a3;margin-top:.75rem}
+h1,h2,h3,h4,h5,h6,p,label,[data-testid="stMarkdownContainer"]{color:var(--pf-text)}[data-testid="stCaptionContainer"],.stCaption{color:var(--pf-muted)!important}
+button[data-baseweb="tab"]{color:#24364a!important}button[data-baseweb="tab"] p{color:inherit!important}button[data-baseweb="tab"]:hover{color:var(--pf-blue)!important;background:#eef7ff!important}button[data-baseweb="tab"][aria-selected="true"],button[data-baseweb="tab"][aria-selected="true"] p{color:var(--pf-blue)!important;font-weight:700!important}div[data-baseweb="tab-highlight"]{background-color:var(--pf-blue)!important;height:3px!important}
+[data-baseweb="input"]>div,[data-baseweb="base-input"],.stTextInput input,.stNumberInput input,.stTextArea textarea{background:#fff!important;color:var(--pf-text)!important;border-color:#d6e0eb!important}
+.stButton>button,.stFormSubmitButton>button,.stDownloadButton>button{border-radius:10px!important;border:1px solid #b9d7f5!important;background:#fff!important;color:#164a7e!important}.stButton>button:hover,.stFormSubmitButton>button:hover,.stDownloadButton>button:hover{border-color:var(--pf-blue)!important;color:var(--pf-blue)!important;background:#f3f9ff!important}button[kind="primary"],.stFormSubmitButton button[kind="primary"],.stDownloadButton button[kind="primary"]{background:#168bff!important;color:#fff!important;border-color:#168bff!important}
+div[data-testid="stMetric"]{background:#fff;border:1px solid var(--pf-border);padding:1rem;border-radius:14px;box-shadow:0 6px 18px rgba(31,55,84,.05)}div[data-testid="stMetricValue"]{color:#0b1f33!important}.auth-card{max-width:620px;margin:1.2rem auto 0;padding:1.35rem;border:1px solid var(--pf-border);border-radius:16px;background:#fff}
+[data-testid="stFileUploaderDropzone"]{background:#f5f9fd!important;border:1px dashed #9bc9f6!important;border-radius:14px!important}[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dbe5ef;border-radius:12px;overflow:hidden}[data-testid="stExpander"]{background:#fff!important;border:1px solid #dbe5ef!important;border-radius:12px!important}
+div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]){display:none!important}
+.pf-title{display:flex;align-items:center;gap:14px;margin:12px 0 2px}.pf-title .ico{font-size:2.1rem}.pf-title h2{margin:0;font-size:2rem}.pf-sub{color:#64748b;margin:0 0 20px 54px}
+.pf-supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:12px 0 18px}.pf-supplier-card{background:#fff;border:1px solid #dbe5ef;border-radius:14px;padding:16px;box-shadow:0 5px 16px rgba(31,55,84,.05)}.pf-supplier-name{font-size:1.05rem;font-weight:800;color:#0b1f33}.pf-supplier-meta{font-size:.82rem;color:#6b7f97;margin-top:5px}.pf-best-card{border-color:#77d7ad;background:#f2fff9}.pf-best-card .pf-supplier-name{color:#087a4d}
+.pf-table-wrap{overflow-x:auto;border:1px solid #d7e2ee;border-radius:14px;background:#fff;margin:12px 0 16px}.pf-table{border-collapse:collapse;width:100%;min-width:1100px;font-size:.88rem}.pf-table th,.pf-table td{border-right:1px solid #e2e9f1;border-bottom:1px solid #e8eef4;padding:10px 9px;white-space:nowrap;text-align:right}.pf-table th{background:#f2f6fa;color:#23374d;font-weight:700}.pf-table th.left,.pf-table td.left{text-align:left}.pf-table .supplier-head{background:#eaf4ff;color:#096ecf;text-align:center}.pf-table .best-head{background:#e9fbf3;color:#087a4d;text-align:center}.pf-table td.best{background:#effcf6;color:#087a4d;font-weight:800}.pf-table tr.total td{font-weight:800;background:#f6f9fc}.pf-table tr.total td.best{background:#e6f9f0}.pf-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0 18px}.pf-note{background:#fff;border:1px solid #dbe5ef;border-radius:14px;padding:16px}.pf-note.green{border-color:#72d5a9;background:#f2fff9}.pf-note strong{font-size:1.15rem}.pf-note.green strong{color:#087a4d}
+@media(max-width:768px){.block-container{padding:1rem}.hero{padding:1.05rem}.hero h1{font-size:2rem}.pf-bottom{grid-template-columns:1fr}.pf-sub{margin-left:0}}
 </style>
-<div class="hero">
-  <h1><span class="price">Price</span><span class="flow">Flow</span></h1>
-  <p>Analyse & comparaison des achats</p>
-</div>
+<div class="hero"><h1><span class="price">Price</span><span class="flow">Flow</span></h1><p>Analyse & comparaison des achats</p></div>
 """, unsafe_allow_html=True)
 
 if "history" not in st.session_state:
@@ -1664,170 +1581,97 @@ with tab_location:
 
 
 with tab_compare:
-    st.subheader("⚖️ Comparatif")
-    st.caption("Déposez plusieurs devis fournisseurs pour comparer les articles équivalents et leurs écarts de prix.")
+    st.markdown('<div class="pf-title"><span class="ico">⚖️</span><h2>Comparatif fournisseurs</h2></div><p class="pf-sub">Comparez vos devis et identifiez automatiquement les meilleurs prix</p>', unsafe_allow_html=True)
 
-    compare_files = st.file_uploader(
-        "Déposez 2 devis ou plus",
-        type=["pdf"],
-        accept_multiple_files=True,
-        key="compare_pdfs",
-    )
-
+    compare_files = st.file_uploader("Déposez 2 devis ou plus", type=["pdf"], accept_multiple_files=True, key="compare_pdfs")
     if compare_files:
         if len(compare_files) < 2:
             st.info("Ajoutez au moins 2 devis pour lancer la comparaison.")
         else:
-            offers = []
-            errors = []
+            offers, errors = [], []
             for f in compare_files:
                 try:
                     rws, sup, num, tht, extras = extract_document(f.getvalue())
-                    offers.append({"Fichier": f.name, "Fournisseur": sup, "N° document": num, "Total HT": tht, "Lignes": rws})
+                    offers.append({"Fichier":f.name,"Fournisseur":sup,"N° document":num,"Total HT":tht,"Lignes":rws})
                 except Exception as e:
                     errors.append(f"{f.name} : {e}")
+            if errors: st.warning("Certains fichiers n'ont pas pu être lus : " + " | ".join(errors))
+            if offers:
+                sig=("comparatif",tuple((o["Fichier"],o["N° document"]) for o in offers))
+                if st.session_state.get("compare_usage_sig") != sig:
+                    track_usage("comparatif", {"documents":len(offers),"suppliers":[o["Fournisseur"] for o in offers]})
+                    st.session_state.compare_usage_sig=sig
 
-            if errors:
-                st.warning("Certains fichiers n'ont pas pu être lus : " + " | ".join(errors))
+                cards=''.join(f'<div class="pf-supplier-card"><div class="pf-supplier-name">{html.escape(str(o["Fournisseur"]))}</div><div class="pf-supplier-meta">N° {html.escape(str(o["N° document"]))}<br>{len(o["Lignes"])} article(s) · {fmt_money(o["Total HT"])}</div></div>' for o in offers)
+                st.markdown(f'<div class="pf-supplier-grid">{cards}</div>', unsafe_allow_html=True)
 
-            summary = pd.DataFrame([{
-                "Fournisseur": o["Fournisseur"],
-                "N° document": o["N° document"],
-                "Total HT document": o["Total HT"],
-                "Articles détectés": len(o["Lignes"]),
-            } for o in offers])
-            compare_signature = tuple(sorted((o["Fichier"], o["N° document"]) for o in offers))
-            if offers and st.session_state.get("last_compare_usage") != compare_signature:
-                track_usage("comparatif", {"documents": len(offers), "suppliers": [o["Fournisseur"] for o in offers]})
-                st.session_state.last_compare_usage = compare_signature
-            st.subheader("Synthèse des devis")
-            st.dataframe(summary, use_container_width=True, hide_index=True)
+                records=[]
+                for o in offers:
+                    for r in o["Lignes"]:
+                        desc=clean(r["Désignation"])
+                        if any(w in desc.upper() for w in ["FRAIS DE PORT","PORT SUR VENTE","LIVRAISON STANDARD","CARBURANT","ECO-CONTRIBUTION"]): continue
+                        key=comparison_key(desc)
+                        if key:
+                            records.append({"Clé":key,"Désignation":desc,"Fournisseur":o["Fournisseur"],"Quantité":float(r["Quantité"]),"Prix unitaire":float(r["Prix unitaire"])})
+                if records:
+                    rdf=pd.DataFrame(records)
+                    suppliers=[o["Fournisseur"] for o in offers]
+                    # une offre par fournisseur et famille : on conserve le PU le plus bas en cas de doublon
+                    rows=[]
+                    for key,g in rdf.groupby("Clé",sort=False):
+                        by={}
+                        for sup,sg in g.groupby("Fournisseur"):
+                            rr=sg.sort_values("Prix unitaire").iloc[0]; by[sup]=rr
+                        avail=list(by.values())
+                        if not avail: continue
+                        best=min(avail,key=lambda x:float(x["Prix unitaire"]))
+                        qty=float(best["Quantité"]); bestpu=float(best["Prix unitaire"])
+                        worstpu=max(float(x["Prix unitaire"]) for x in avail)
+                        desc=str(best["Désignation"])
+                        rows.append({"key":key,"desc":desc,"qty":qty,"by":by,"best_sup":best["Fournisseur"],"best_pu":bestpu,"best_total":qty*bestpu,"gap":qty*(worstpu-bestpu) if len(avail)>1 else 0,"gap_pct":((worstpu-bestpu)/worstpu*100) if len(avail)>1 and worstpu else 0,"comparable":len(avail)>1})
+                    if rows:
+                        comparable=[r for r in rows if r["comparable"]]
+                        saving=sum(r["gap"] for r in comparable); worstbasket=sum(r["best_total"]+r["gap"] for r in comparable)
+                        saving_pct=(saving/worstbasket*100) if worstbasket else 0
+                        top1,top2=st.columns([3,1])
+                        with top1: st.success(f"🏆 Meilleurs prix identifiés automatiquement sur {len(comparable)} ligne(s) comparable(s).")
+                        with top2: st.metric("Économie potentielle", fmt_money(saving))
 
-            records = []
-            for o in offers:
-                for r in o["Lignes"]:
-                    desc = clean(r["Désignation"])
-                    if any(w in desc.upper() for w in ["FRAIS DE PORT", "PORT SUR VENTE", "LIVRAISON STANDARD", "CARBURANT", "ECO-CONTRIBUTION"]):
-                        continue
-                    records.append({
-                        "Clé": comparison_key(desc),
-                        "Désignation": desc,
-                        "Fournisseur": o["Fournisseur"],
-                        "Quantité": float(r["Quantité"]),
-                        "Prix unitaire": float(r["Prix unitaire"]),
-                    })
-
-            if records:
-                rdf = pd.DataFrame(records)
-                groups = []
-                for key, g in rdf.groupby("Clé", sort=False):
-                    if not key:
-                        continue
-                    multi_supplier = len(g["Fournisseur"].unique()) >= 2
-                    best = float(g["Prix unitaire"].min())
-                    for _, rr in g.sort_values("Prix unitaire").iterrows():
-                        diff = round(float(rr["Prix unitaire"]) - best, 4)
-                        pct = round((diff / best * 100), 1) if best else 0.0
-                        groups.append({
-                            "Article rapproché": key,
-                            "Fournisseur": rr["Fournisseur"],
-                            "Désignation fournisseur": rr["Désignation"],
-                            "Quantité": rr["Quantité"],
-                            "Prix unitaire": rr["Prix unitaire"],
-                            "Écart vs meilleur (€)": diff if multi_supplier else 0.0,
-                            "Écart vs meilleur (%)": pct if multi_supplier else 0.0,
-                            "Meilleur prix": ("✅" if abs(diff) < 0.0001 else "") if multi_supplier else "Seul prix",
-                        })
-
-                if groups:
-                    comp_df = pd.DataFrame(groups)
-
-                    savings = []
-                    for key, g in comp_df.groupby("Article rapproché", sort=False):
-                        if g["Fournisseur"].nunique() < 2:
-                            continue
-                        best_rows = g[g["Meilleur prix"] == "✅"]
-                        other = g[g["Meilleur prix"] != "✅"]
-                        if not best_rows.empty and not other.empty:
-                            b = best_rows.iloc[0]
-                            # Pour une lecture simple, on compare le meilleur prix au concurrent
-                            # le plus cher présent pour la même famille d'article.
-                            worst = other.sort_values("Prix unitaire", ascending=False).iloc[0]
-                            qty = float(b["Quantité"])
-                            unit_gap = round(float(worst["Prix unitaire"]) - float(b["Prix unitaire"]), 2)
-                            total_gap = round(unit_gap * qty, 2)
-                            pct_gap = round((unit_gap / float(b["Prix unitaire"]) * 100), 1) if float(b["Prix unitaire"]) else 0.0
-                            savings.append({
-                                "Article": key,
-                                "Qté": qty,
-                                "🟢 Meilleur fournisseur": b["Fournisseur"],
-                                "Meilleur PU": float(b["Prix unitaire"]),
-                                "Autre fournisseur": worst["Fournisseur"],
-                                "Autre PU": float(worst["Prix unitaire"]),
-                                "Écart / unité": unit_gap,
-                                "Écart %": pct_gap,
-                                "💰 Écart total": total_gap,
-                            })
-
-                    if savings:
-                        nego_df = pd.DataFrame(savings)
-                        potential = round(float(nego_df["💰 Écart total"].sum()), 2)
-                        st.success(
-                            f"💰 Économie potentielle sur les articles comparables : "
-                            f"{potential:,.2f} €".replace(",", " ").replace(".", ",")
-                        )
-                        st.subheader("Comparatif simplifié")
-                        st.dataframe(
-                            nego_df,
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config={
-                                "Meilleur PU": st.column_config.NumberColumn(format="%.2f €"),
-                                "Autre PU": st.column_config.NumberColumn(format="%.2f €"),
-                                "Écart / unité": st.column_config.NumberColumn(format="+%.2f €"),
-                                "Écart %": st.column_config.NumberColumn(format="+%.1f %%"),
-                                "💰 Écart total": st.column_config.NumberColumn(format="+%.2f €"),
-                            },
-                        )
-
-                        with st.expander("Voir le détail complet"):
-                            st.dataframe(comp_df, use_container_width=True, hide_index=True)
-                    else:
-                        nego_df = pd.DataFrame()
-                        st.info("Aucun article comparable trouvé entre plusieurs fournisseurs.")
-
-                    solo_count = int((comp_df["Meilleur prix"] == "Seul prix").sum())
-                    if solo_count:
-                        st.caption(
-                            f"{solo_count} ligne(s) sans concurrent direct sont quand même conservées "
-                            "dans le détail complet et dans l'Excel comparatif."
-                        )
-
-                    out_cmp = io.BytesIO()
-                    with pd.ExcelWriter(out_cmp, engine="xlsxwriter") as writer:
-                        summary.to_excel(writer, index=False, sheet_name="Synthèse")
-                        comp_df.to_excel(writer, index=False, sheet_name="Comparatif")
-                        if savings:
-                            nego_df.to_excel(writer, index=False, sheet_name="Négociation")
-                        wb = writer.book
-                        money_fmt = wb.add_format({"num_format": "0.00"})
-                        for ws in writer.sheets.values():
-                            ws.set_column("A:A", 30)
-                            ws.set_column("B:C", 28)
-                            ws.set_column("D:H", 20, money_fmt)
-                    out_cmp.seek(0)
-                    st.download_button(
-                        "⬇ Télécharger le comparatif Excel",
-                        data=out_cmp,
-                        file_name="Comparatif_fournisseurs.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        type="primary",
-                        use_container_width=True,
-                    )
-                else:
-                    st.warning("Aucun article équivalent n'a encore été rapproché entre ces devis.")
-            else:
-                st.warning("Aucune ligne exploitable pour la comparaison.")
+                        h1='<tr><th rowspan="2">#</th><th rowspan="2" class="left">Désignation</th><th rowspan="2">Qté</th>'
+                        h2='<tr>'
+                        for sup in suppliers:
+                            h1+=f'<th colspan="2" class="supplier-head">{html.escape(str(sup))}</th>'; h2+='<th>Prix U. (€)</th><th>Total (€)</th>'
+                        h1+='<th colspan="3" class="best-head">Meilleur prix</th><th colspan="2">Écart max</th></tr>'
+                        h2+='<th class="best-head">Fournisseur</th><th class="best-head">Prix U. (€)</th><th class="best-head">Total (€)</th><th>(€)</th><th>(%)</th></tr>'
+                        body=''; totals={sup:0.0 for sup in suppliers}; best_total_sum=0
+                        export=[]
+                        for i,r in enumerate(rows,1):
+                            body+=f'<tr><td>{i}</td><td class="left">{html.escape(r["desc"])}</td><td>{r["qty"]:g}</td>'
+                            er={"#":i,"Désignation":r["desc"],"Qté":r["qty"]}
+                            for sup in suppliers:
+                                rr=r["by"].get(sup)
+                                if rr is None: body+='<td>—</td><td>—</td>'; er[f'{sup} PU']=None; er[f'{sup} Total']=None
+                                else:
+                                    pu=float(rr["Prix unitaire"]); total=r["qty"]*pu; totals[sup]+=total
+                                    cls=' class="best"' if sup==r["best_sup"] else ''
+                                    body+=f'<td{cls}>{pu:,.2f}</td><td{cls}>{total:,.2f}</td>'; er[f'{sup} PU']=pu; er[f'{sup} Total']=total
+                            best_total_sum+=r["best_total"]
+                            body+=f'<td class="best left">{html.escape(str(r["best_sup"]))}</td><td class="best">{r["best_pu"]:,.2f}</td><td class="best">{r["best_total"]:,.2f}</td><td>{r["gap"]:,.2f}</td><td>{r["gap_pct"]:.1f}%</td></tr>'
+                            er.update({"Meilleur fournisseur":r["best_sup"],"Meilleur PU":r["best_pu"],"Meilleur total":r["best_total"],"Écart max €":r["gap"],"Écart max %":r["gap_pct"]}); export.append(er)
+                        body+='<tr class="total"><td colspan="2" class="left">TOTAL</td><td></td>'
+                        for sup in suppliers: body+=f'<td></td><td>{totals[sup]:,.2f}</td>'
+                        body+=f'<td class="best"></td><td class="best"></td><td class="best">{best_total_sum:,.2f}</td><td>{saving:,.2f}</td><td>{saving_pct:.1f}%</td></tr>'
+                        table=f'<div class="pf-table-wrap"><table class="pf-table"><thead>{h1}{h2}</thead><tbody>{body}</tbody></table></div>'
+                        st.markdown(table,unsafe_allow_html=True)
+                        st.markdown(f'<div class="pf-bottom"><div class="pf-note green">En choisissant les meilleurs prix<br><strong>Vous économisez {fmt_money(saving)}</strong><br><span>Soit {saving_pct:.1f}% par rapport aux prix les plus élevés comparables</span></div><div class="pf-note">📊 Analyse terminée<br><strong>{len(rows)} lignes analysées</strong><br><span>Meilleurs prix trouvés sur {len(comparable)} lignes comparables</span></div></div>',unsafe_allow_html=True)
+                        out_cmp=io.BytesIO(); edf=pd.DataFrame(export)
+                        with pd.ExcelWriter(out_cmp,engine="xlsxwriter") as writer:
+                            edf.to_excel(writer,index=False,sheet_name="Comparatif")
+                            ws=writer.sheets["Comparatif"]; ws.set_column("A:A",6); ws.set_column("B:B",45); ws.set_column("C:Z",17)
+                        out_cmp.seek(0)
+                        st.download_button("⬇ Télécharger le comparatif Excel",data=out_cmp,file_name="Comparatif_fournisseurs.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",type="primary",use_container_width=True)
+                    else: st.warning("Aucune ligne exploitable pour la comparaison.")
+                else: st.warning("Aucune ligne exploitable pour la comparaison.")
 
 
 st.divider()
@@ -1944,4 +1788,4 @@ with tab_account:
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
 
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V17.2</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V20</div>', unsafe_allow_html=True)
