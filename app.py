@@ -24,22 +24,35 @@ PF_AUTH_MAX_AGE = 60 * 60
 
 st.markdown("""
 <style>
-:root{color-scheme:light!important;--pf-bg:#f6f9fd;--pf-panel:#fff;--pf-border:#d9e3ef;--pf-blue:#168bff;--pf-text:#0b1f33;--pf-muted:#64748b;--pf-green:#12a56a;}
-html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],.stApp{background:var(--pf-bg)!important;color:var(--pf-text)!important;}
-[data-testid="stHeader"]{background:rgba(246,249,253,.96)!important}.block-container{max-width:1450px;padding-top:1.2rem;padding-bottom:2rem}
-.hero{padding:1.3rem 1.55rem;border:1px solid #e3eaf2;border-radius:18px;margin-bottom:1.15rem;background:#fff;box-shadow:0 10px 30px rgba(31,55,84,.08)}
-.hero h1{margin:0;font-size:2.35rem;font-weight:800;letter-spacing:-.045em}.hero .price{color:#0b1f33}.hero .flow{color:#168bff}.hero p{margin:.42rem 0 0;color:#6b7f97}.copyright{font-size:.82rem;color:#8190a3;margin-top:.75rem}
-h1,h2,h3,h4,h5,h6,p,label,[data-testid="stMarkdownContainer"]{color:var(--pf-text)}[data-testid="stCaptionContainer"],.stCaption{color:var(--pf-muted)!important}
-button[data-baseweb="tab"]{color:#24364a!important}button[data-baseweb="tab"] p{color:inherit!important}button[data-baseweb="tab"]:hover{color:var(--pf-blue)!important;background:#eef7ff!important}button[data-baseweb="tab"][aria-selected="true"],button[data-baseweb="tab"][aria-selected="true"] p{color:var(--pf-blue)!important;font-weight:700!important}div[data-baseweb="tab-highlight"]{background-color:var(--pf-blue)!important;height:3px!important}
+:root{color-scheme:light!important;--pf-bg:#f7f9fc;--pf-panel:#fff;--pf-border:#dbe4ee;--pf-blue:#0b8cff;--pf-text:#071b33;--pf-muted:#62748a;--pf-green:#12a56a}
+html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],.stApp{background:var(--pf-bg)!important;color:var(--pf-text)!important;font-family:Inter,"Segoe UI",Arial,sans-serif!important}
+[data-testid="stHeader"]{background:transparent!important;height:2.2rem}.block-container{max-width:1540px;padding-top:.9rem;padding-bottom:2rem}
+.hero{height:96px;box-sizing:border-box;padding:17px 26px;border:1px solid #e6ebf1;border-radius:17px;background:#fff;box-shadow:0 10px 32px rgba(31,55,84,.10);margin:0 0 14px}
+.hero h1{margin:0;font-size:2.15rem;line-height:1.05;font-weight:850;letter-spacing:-.05em}.hero .price{color:#071b33}.hero .flow{color:#0b8cff}.hero p{margin:.45rem 0 0;color:#62748a;font-size:.94rem}.copyright{font-size:.78rem;color:#8190a3;margin-top:.8rem}
+/* Navigation intégrée dans le header, comme la maquette */
+[data-testid="stTabs"]>div:first-child{position:relative;z-index:20}
+[data-baseweb="tab-list"]{position:relative!important;top:-91px!important;margin-left:315px!important;width:calc(100% - 340px)!important;height:78px!important;align-items:center!important;gap:12px!important;margin-bottom:-76px!important;border-bottom:0!important;background:transparent!important}
+button[data-baseweb="tab"]{height:76px!important;padding:0 18px!important;border-radius:0!important;color:#17283b!important;background:transparent!important;font-size:.98rem!important;border:0!important}
+button[data-baseweb="tab"] p{color:inherit!important;font-size:.98rem!important;white-space:nowrap!important}
+button[data-baseweb="tab"]:hover{color:var(--pf-blue)!important;background:#f5faff!important}
+button[data-baseweb="tab"][aria-selected="true"],button[data-baseweb="tab"][aria-selected="true"] p{color:var(--pf-blue)!important;font-weight:700!important}
+button[data-baseweb="tab"]:last-child{margin-left:auto!important;padding-left:12px!important;padding-right:14px!important}
+button[data-baseweb="tab"]:last-child:before{content:"MR";display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;margin-right:10px;border-radius:50%;background:#0b8cff;color:white;font-weight:800;font-size:.86rem}
+div[data-baseweb="tab-highlight"]{background:#0b8cff!important;height:4px!important;border-radius:4px 4px 0 0!important}
 [data-baseweb="input"]>div,[data-baseweb="base-input"],.stTextInput input,.stNumberInput input,.stTextArea textarea{background:#fff!important;color:var(--pf-text)!important;border-color:#d6e0eb!important}
-.stButton>button,.stFormSubmitButton>button,.stDownloadButton>button{border-radius:10px!important;border:1px solid #b9d7f5!important;background:#fff!important;color:#164a7e!important}.stButton>button:hover,.stFormSubmitButton>button:hover,.stDownloadButton>button:hover{border-color:var(--pf-blue)!important;color:var(--pf-blue)!important;background:#f3f9ff!important}button[kind="primary"],.stFormSubmitButton button[kind="primary"],.stDownloadButton button[kind="primary"]{background:#168bff!important;color:#fff!important;border-color:#168bff!important}
-div[data-testid="stMetric"]{background:#fff;border:1px solid var(--pf-border);padding:1rem;border-radius:14px;box-shadow:0 6px 18px rgba(31,55,84,.05)}div[data-testid="stMetricValue"]{color:#0b1f33!important}.auth-card{max-width:620px;margin:1.2rem auto 0;padding:1.35rem;border:1px solid var(--pf-border);border-radius:16px;background:#fff}
-[data-testid="stFileUploaderDropzone"]{background:#f5f9fd!important;border:1px dashed #9bc9f6!important;border-radius:14px!important}[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dbe5ef;border-radius:12px;overflow:hidden}[data-testid="stExpander"]{background:#fff!important;border:1px solid #dbe5ef!important;border-radius:12px!important}
+.stButton>button,.stFormSubmitButton>button,.stDownloadButton>button{min-height:46px;border-radius:9px!important;border:1px solid #acd3fb!important;background:#fff!important;color:#0b66bd!important;font-weight:650!important}.stButton>button:hover,.stFormSubmitButton>button:hover,.stDownloadButton>button:hover{border-color:var(--pf-blue)!important;color:var(--pf-blue)!important;background:#f3f9ff!important}button[kind="primary"],.stFormSubmitButton button[kind="primary"],.stDownloadButton button[kind="primary"]{background:#0b8cff!important;color:#fff!important;border-color:#0b8cff!important;box-shadow:0 6px 15px rgba(11,140,255,.20)!important}
+[data-testid="stFileUploaderDropzone"]{min-height:78px!important;background:#f7fbff!important;border:1px solid #b8d9f8!important;border-radius:12px!important;padding:12px 16px!important}[data-testid="stFileUploaderDropzone"] button{background:#0b8cff!important;color:#fff!important;border-color:#0b8cff!important}
+div[data-testid="stMetric"]{background:#fff;border:1px solid #d6e0ea;padding:16px 20px;border-radius:13px;box-shadow:0 3px 12px rgba(31,55,84,.035)}div[data-testid="stMetricLabel"] p{font-size:.92rem!important;color:#25384d!important}div[data-testid="stMetricValue"]{color:#071b33!important;font-size:1.72rem!important}
+[data-testid="stAlert"]{border-radius:10px!important}.auth-card{max-width:620px;margin:1.2rem auto 0;padding:1.35rem;border:1px solid var(--pf-border);border-radius:16px;background:#fff}
+[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dbe5ef;border-radius:11px;overflow:hidden}[data-testid="stExpander"]{background:#fff!important;border:1px solid #dbe5ef!important;border-radius:10px!important}
 div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]){display:none!important}
-.pf-title{display:flex;align-items:center;gap:14px;margin:12px 0 2px}.pf-title .ico{font-size:2.1rem}.pf-title h2{margin:0;font-size:2rem}.pf-sub{color:#64748b;margin:0 0 20px 54px}
-.pf-supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:12px 0 18px}.pf-supplier-card{background:#fff;border:1px solid #dbe5ef;border-radius:14px;padding:16px;box-shadow:0 5px 16px rgba(31,55,84,.05)}.pf-supplier-name{font-size:1.05rem;font-weight:800;color:#0b1f33}.pf-supplier-meta{font-size:.82rem;color:#6b7f97;margin-top:5px}.pf-best-card{border-color:#77d7ad;background:#f2fff9}.pf-best-card .pf-supplier-name{color:#087a4d}
-.pf-table-wrap{overflow-x:auto;border:1px solid #d7e2ee;border-radius:14px;background:#fff;margin:12px 0 16px}.pf-table{border-collapse:collapse;width:100%;min-width:1100px;font-size:.88rem}.pf-table th,.pf-table td{border-right:1px solid #e2e9f1;border-bottom:1px solid #e8eef4;padding:10px 9px;white-space:nowrap;text-align:right}.pf-table th{background:#f2f6fa;color:#23374d;font-weight:700}.pf-table th.left,.pf-table td.left{text-align:left}.pf-table .supplier-head{background:#eaf4ff;color:#096ecf;text-align:center}.pf-table .best-head{background:#e9fbf3;color:#087a4d;text-align:center}.pf-table td.best{background:#effcf6;color:#087a4d;font-weight:800}.pf-table tr.total td{font-weight:800;background:#f6f9fc}.pf-table tr.total td.best{background:#e6f9f0}.pf-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0 18px}.pf-note{background:#fff;border:1px solid #dbe5ef;border-radius:14px;padding:16px}.pf-note.green{border-color:#72d5a9;background:#f2fff9}.pf-note strong{font-size:1.15rem}.pf-note.green strong{color:#087a4d}
-@media(max-width:768px){.block-container{padding:1rem}.hero{padding:1.05rem}.hero h1{font-size:2rem}.pf-bottom{grid-template-columns:1fr}.pf-sub{margin-left:0}}
+h1,h2,h3,h4,h5,h6,p,label,[data-testid="stMarkdownContainer"]{color:var(--pf-text)}[data-testid="stCaptionContainer"],.stCaption{color:var(--pf-muted)!important}
+h3{font-size:1.75rem!important;font-weight:800!important;letter-spacing:-.02em!important;margin-top:.65rem!important}
+.pf-title{display:flex;align-items:center;gap:14px;margin:16px 0 0}.pf-title .ico{font-size:2.45rem;color:#0b8cff}.pf-title h2{margin:0;font-size:2rem;font-weight:820;letter-spacing:-.025em}.pf-sub{color:#42566d;margin:1px 0 22px 58px;font-size:1rem}
+.pf-supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:12px 0 18px}.pf-supplier-card{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:16px;box-shadow:0 4px 14px rgba(31,55,84,.04)}.pf-supplier-name{font-size:1.05rem;font-weight:800;color:#0b1f33}.pf-supplier-meta{font-size:.82rem;color:#6b7f97;margin-top:5px}.pf-best-card{border-color:#77d7ad;background:#f2fff9}.pf-best-card .pf-supplier-name{color:#087a4d}
+.pf-table-wrap{overflow-x:auto;border:1px solid #d7e2ee;border-radius:12px;background:#fff;margin:12px 0 16px}.pf-table{border-collapse:collapse;width:100%;min-width:1100px;font-size:.88rem}.pf-table th,.pf-table td{border-right:1px solid #e2e9f1;border-bottom:1px solid #e8eef4;padding:10px 9px;white-space:nowrap;text-align:right}.pf-table th{background:#f2f6fa;color:#23374d;font-weight:700}.pf-table th.left,.pf-table td.left{text-align:left}.pf-table .supplier-head{background:#eaf4ff;color:#096ecf;text-align:center}.pf-table .best-head{background:#e9fbf3;color:#087a4d;text-align:center}.pf-table td.best{background:#effcf6;color:#087a4d;font-weight:800}.pf-table tr.total td{font-weight:800;background:#f6f9fc}.pf-table tr.total td.best{background:#e6f9f0}.pf-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0 18px}.pf-note{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:16px}.pf-note.green{border-color:#72d5a9;background:#f2fff9}.pf-note strong{font-size:1.15rem}.pf-note.green strong{color:#087a4d}
+@media(max-width:1050px){[data-baseweb="tab-list"]{margin-left:250px!important;width:calc(100% - 270px)!important;gap:2px!important}button[data-baseweb="tab"]{padding:0 8px!important}button[data-baseweb="tab"]:last-child:before{display:none}}
+@media(max-width:768px){.block-container{padding:.7rem}.hero{height:auto;padding:15px}.hero h1{font-size:1.8rem}.hero p{font-size:.82rem}[data-baseweb="tab-list"]{position:static!important;top:auto!important;margin:0!important;width:100%!important;height:auto!important;overflow-x:auto!important}button[data-baseweb="tab"]{height:52px!important}.pf-bottom{grid-template-columns:1fr}.pf-sub{margin-left:0}}
 </style>
 <div class="hero"><h1><span class="price">Price</span><span class="flow">Flow</span></h1><p>Analyse & comparaison des achats</p></div>
 """, unsafe_allow_html=True)
@@ -1286,7 +1299,7 @@ require_login()
 load_cloud_history()
 
 
-tab_achats, tab_location, tab_compare, tab_account = st.tabs(["📦 Achats / Fournisseurs", "🏗️ Locations", "⚖️ Comparatif", "👤 Mon compte"])
+tab_achats, tab_location, tab_compare, tab_stats, tab_account = st.tabs(["▣  Achats / Fournisseurs", "🏗  Locations", "⚖  Comparatif", "▮▮▮  Statistiques", "Mon compte ⌄"])
 
 with tab_achats:
     st.subheader("📦 Achats / Fournisseurs")
@@ -1691,6 +1704,19 @@ with st.expander("Historique de contrôle", expanded=False):
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
 
+with tab_stats:
+    st.markdown('<div class="pf-title"><span class="ico">▮▮▮</span><h2>Statistiques</h2></div><div class="pf-sub">Suivez l’utilisation et l’activité de PriceFlow</div>', unsafe_allow_html=True)
+    hist_df = pd.DataFrame(st.session_state.history or [])
+    s1, s2, s3 = st.columns(3)
+    s1.metric("Documents enregistrés", len(hist_df))
+    s2.metric("Fournisseurs", hist_df["Fournisseur"].nunique() if not hist_df.empty and "Fournisseur" in hist_df else 0)
+    s3.metric("Compte", "Administrateur" if is_admin() else "Utilisateur")
+    if not hist_df.empty:
+        st.markdown("### Activité récente")
+        st.dataframe(hist_df.head(25), use_container_width=True, hide_index=True)
+    else:
+        st.info("Les statistiques apparaîtront ici dès que des documents auront été analysés.")
+
 with tab_account:
     st.subheader("👤 Mon compte")
     user = st.session_state.get("pf_user", {}) or {}
@@ -1788,4 +1814,4 @@ with tab_account:
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
 
-st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V20</div>', unsafe_allow_html=True)
+st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow V21</div>', unsafe_allow_html=True)
