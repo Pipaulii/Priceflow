@@ -30,16 +30,19 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],.stApp{backg
 [data-testid="stHeader"]{background:transparent!important;height:2.2rem}.block-container{max-width:1540px;padding-top:.9rem;padding-bottom:2rem}
 .hero{height:108px;box-sizing:border-box;padding:17px 26px;border:1px solid #e6ebf1;border-radius:17px;background:#fff;box-shadow:0 10px 32px rgba(31,55,84,.10);margin:0 0 14px}
 .hero h1{margin:0;font-size:2.15rem;line-height:1.05;font-weight:850;letter-spacing:-.05em}.hero .price{color:#071b33}.hero .flow{color:#0b8cff}.hero p{margin:.45rem 0 0;color:#62748a;font-size:.94rem}.copyright{font-size:.78rem;color:#8190a3;margin-top:.8rem}
-/* Navigation intégrée dans le header, comme la maquette */
-[data-testid="stTabs"]>div:first-child{position:relative;z-index:20}
-[data-baseweb="tab-list"]{position:relative!important;top:-103px!important;margin-left:330px!important;width:calc(100% - 355px)!important;height:82px!important;align-items:center!important;gap:12px!important;margin-bottom:-82px!important;border-bottom:0!important;background:transparent!important}
-button[data-baseweb="tab"]{height:82px!important;padding:0 18px!important;border-radius:0!important;color:#17283b!important;background:transparent!important;font-size:.98rem!important;border:0!important}
-button[data-baseweb="tab"] p{color:inherit!important;font-size:.98rem!important;white-space:nowrap!important}
-button[data-baseweb="tab"]:hover{color:var(--pf-blue)!important;background:#f5faff!important}
-button[data-baseweb="tab"][aria-selected="true"],button[data-baseweb="tab"][aria-selected="true"] p{color:var(--pf-blue)!important;font-weight:700!important}
-button[data-baseweb="tab"]:last-child{margin-left:auto!important;padding-left:12px!important;padding-right:14px!important}
-button[data-baseweb="tab"]:last-child:before{content:"MR";display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;margin-right:10px;border-radius:50%;background:#0b8cff;color:white;font-weight:800;font-size:.86rem}
-div[data-baseweb="tab-highlight"]{background:#0b8cff!important;height:4px!important;border-radius:4px 4px 0 0!important}
+/* Navigation PriceFlow : un seul header blanc, sans les onglets Streamlit */
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]){position:relative!important;z-index:30!important;margin-top:-97px!important;margin-left:315px!important;width:calc(100% - 340px)!important;height:78px!important;margin-bottom:19px!important;display:flex!important;align-items:center!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) > label{display:none!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) [role="radiogroup"]{display:flex!important;align-items:center!important;width:100%!important;gap:7px!important;flex-wrap:nowrap!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label{position:relative!important;padding:15px 14px 17px!important;border-radius:9px!important;cursor:pointer!important;white-space:nowrap!important;margin:0!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child{margin-left:auto!important;padding-left:58px!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child:before{content:"MR";position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:#0b8cff;color:#fff;font-weight:800;font-size:.84rem}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:hover{background:#f3f9ff!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:has(input:checked){background:#eef7ff!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:has(input:checked):after{content:"";position:absolute;left:12px;right:12px;bottom:5px;height:3px;background:#0b8cff;border-radius:999px}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:has(input:checked) p{color:#0b8cff!important;font-weight:750!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) [data-testid="stMarkdownContainer"] p{font-size:.94rem!important;color:#17283b!important}
+[data-testid="stRadio"]:has(input[name="pf_main_nav"]) input{display:none!important}
 [data-baseweb="input"]>div,[data-baseweb="base-input"],.stTextInput input,.stNumberInput input,.stTextArea textarea{background:#fff!important;color:var(--pf-text)!important;border-color:#d6e0eb!important}
 .stButton>button,.stFormSubmitButton>button,.stDownloadButton>button{min-height:46px;border-radius:9px!important;border:1px solid #acd3fb!important;background:#fff!important;color:#0b66bd!important;font-weight:650!important}.stButton>button:hover,.stFormSubmitButton>button:hover,.stDownloadButton>button:hover{border-color:var(--pf-blue)!important;color:var(--pf-blue)!important;background:#f3f9ff!important}button[kind="primary"],.stFormSubmitButton button[kind="primary"],.stDownloadButton button[kind="primary"]{background:#0b8cff!important;color:#fff!important;border-color:#0b8cff!important;box-shadow:0 6px 15px rgba(11,140,255,.20)!important}
 [data-testid="stFileUploaderDropzone"]{min-height:78px!important;background:#f7fbff!important;border:1px solid #b8d9f8!important;border-radius:12px!important;padding:12px 16px!important}[data-testid="stFileUploaderDropzone"] button{background:#0b8cff!important;color:#fff!important;border-color:#0b8cff!important}
@@ -54,8 +57,8 @@ h3{font-size:1.75rem!important;font-weight:800!important;letter-spacing:-.02em!i
 .pf-table-wrap{overflow-x:auto;border:1px solid #d7e2ee;border-radius:12px;background:#fff;margin:12px 0 16px}.pf-table{border-collapse:collapse;width:100%;min-width:1100px;font-size:.88rem}.pf-table th,.pf-table td{border-right:1px solid #e2e9f1;border-bottom:1px solid #e8eef4;padding:10px 9px;white-space:nowrap;text-align:right}.pf-table th{background:#f2f6fa;color:#23374d;font-weight:700}.pf-table th.left,.pf-table td.left{text-align:left}.pf-table .supplier-head{background:#eaf4ff;color:#096ecf;text-align:center}.pf-table .best-head{background:#e9fbf3;color:#087a4d;text-align:center}.pf-table td.best{background:#effcf6;color:#087a4d;font-weight:800}.pf-table tr.total td{font-weight:800;background:#f6f9fc}.pf-table tr.total td.best{background:#e6f9f0}.pf-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0 18px}.pf-note{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:16px}.pf-note.green{border-color:#72d5a9;background:#f2fff9}.pf-note strong{font-size:1.15rem}.pf-note.green strong{color:#087a4d}.pf-chart-note{background:#fff;border:1px solid #dbe5ef;border-bottom:0;border-radius:13px 13px 0 0;padding:12px 16px;color:#62748a;margin-top:10px}
 
 .pf-market-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0 18px}.pf-market-kpi{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:15px 17px;box-shadow:0 4px 14px rgba(31,55,84,.035)}.pf-market-kpi .n{font-size:1.7rem;font-weight:850;color:#071b33}.pf-market-kpi .l{font-size:.84rem;color:#62748a;margin-top:3px}.pf-finding{background:#fff;border:1px solid #dbe5ef;border-left:5px solid #0b8cff;border-radius:12px;padding:16px 18px;margin:10px 0}.pf-finding.warn{border-left-color:#f59e0b}.pf-finding.danger{border-left-color:#e34b4b}.pf-finding.link{border-left-color:#7c5cff}.pf-finding.ok{border-left-color:#12a56a}.pf-finding h4{margin:0 0 7px;font-size:1.05rem}.pf-finding p{margin:4px 0;color:#40556c}.pf-source{font-size:.82rem;color:#6d8095;margin-top:8px}.pf-source-box{background:#f6f9fc;border:1px solid #dce6ef;border-radius:9px;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.82rem;white-space:pre-wrap;color:#203449}.pf-doc-chip{display:inline-block;background:#eef6ff;color:#0b66bd;border:1px solid #c9e3ff;border-radius:999px;padding:5px 10px;margin:3px 5px 3px 0;font-size:.78rem}.pf-ai-note{background:#eef7ff;border:1px solid #b9ddff;border-radius:11px;padding:12px 15px;color:#31506e;margin:8px 0 16px}
-@media(max-width:1050px){[data-baseweb="tab-list"]{margin-left:250px!important;width:calc(100% - 270px)!important;gap:2px!important}button[data-baseweb="tab"]{padding:0 8px!important}button[data-baseweb="tab"]:last-child:before{display:none}}
-@media(max-width:768px){.pf-market-grid{grid-template-columns:1fr 1fr}.block-container{padding:.7rem}.hero{height:auto;padding:15px}.hero h1{font-size:1.8rem}.hero p{font-size:.82rem}[data-baseweb="tab-list"]{position:static!important;top:auto!important;margin:0!important;width:100%!important;height:auto!important;overflow-x:auto!important}button[data-baseweb="tab"]{height:52px!important}.pf-bottom{grid-template-columns:1fr}.pf-sub{margin-left:0}}
+@media(max-width:1050px){[data-testid="stRadio"]:has(input[name="pf_main_nav"]){margin-left:245px!important;width:calc(100% - 265px)!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label{padding-left:8px!important;padding-right:8px!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child:before{display:none!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child{padding-left:8px!important}}
+@media(max-width:768px){.pf-market-grid{grid-template-columns:1fr 1fr}.block-container{padding:.7rem}.hero{height:auto;padding:15px}.hero h1{font-size:1.8rem}.hero p{font-size:.82rem}[data-testid="stRadio"]:has(input[name="pf_main_nav"]){position:static!important;margin:8px 0 16px!important;width:100%!important;height:auto!important;overflow-x:auto!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) [role="radiogroup"]{overflow-x:auto!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child{margin-left:0!important}.pf-bottom{grid-template-columns:1fr}.pf-sub{margin-left:0}}
 </style>
 <div class="hero"><h1><span class="price">Price</span><span class="flow">Flow</span></h1><p>Analyse & comparaison des achats</p></div>
 """, unsafe_allow_html=True)
@@ -1377,9 +1380,15 @@ require_login()
 load_cloud_history()
 
 
-tab_achats, tab_location, tab_compare, tab_account = st.tabs(["▣  Achats / Fournisseurs", "🏗  Locations", "⚖  Comparatif", "Mon compte ⌄"])
+nav = st.radio(
+    "Navigation PriceFlow",
+    ["▣ Achats / Fournisseurs", "🏗 Locations", "⚖ Comparatif", "Mon compte ⌄"],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="pf_main_nav",
+)
 
-with tab_achats:
+if nav == "▣ Achats / Fournisseurs":
     st.subheader("📦 Achats / Fournisseurs")
     st.markdown('<p class="pf-sub">Importez vos documents fournisseurs et analysez automatiquement vos achats.</p>', unsafe_allow_html=True)
 
@@ -1565,7 +1574,7 @@ with tab_achats:
         except Exception as e:
             st.error(f"Erreur de lecture du PDF : {e}")
 
-with tab_location:
+if nav == "🏗 Locations":
     st.subheader("🏗️ Locations")
     st.markdown('<p class="pf-sub">Analysez vos devis de location et retrouvez rapidement les coûts de vos matériels.</p>', unsafe_allow_html=True)
 
@@ -1673,7 +1682,7 @@ with tab_location:
             st.error(f"Erreur de lecture du PDF Location : {e}")
 
 
-with tab_compare:
+if nav == "⚖ Comparatif":
     st.markdown('<div class="pf-title"><span class="ico">⚖️</span><h2>Comparatif fournisseurs</h2></div><p class="pf-sub">Comparez vos devis et identifiez automatiquement les meilleurs prix</p>', unsafe_allow_html=True)
 
     compare_files = st.file_uploader("Déposez 2 devis ou plus", type=["pdf"], accept_multiple_files=True, key="compare_pdfs")
@@ -1785,7 +1794,7 @@ with st.expander("Historique de contrôle", expanded=False):
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
 
-with tab_account:
+if nav == "Mon compte ⌄":
     st.subheader("👤 Mon compte")
     user = st.session_state.get("pf_user", {}) or {}
     email = user.get("email", "—")
