@@ -1382,7 +1382,7 @@ load_cloud_history()
 
 nav = st.radio(
     "Navigation PriceFlow",
-    ["▣ Achats / Fournisseurs", "🏗 Locations", "⚖ Comparatif", "Mon compte ⌄"],
+    ["▣ Achats / Fournisseurs", "🏗 Locations", "⚖ Comparatif", "📋 Analyse Marché", "Mon compte ⌄"],
     horizontal=True,
     label_visibility="collapsed",
     key="pf_main_nav",
@@ -1793,6 +1793,48 @@ with st.expander("Historique de contrôle", expanded=False):
         st.caption("Aucun document traité pour le moment.")
 
 st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
+
+if nav == "📋 Analyse Marché":
+    st.markdown('<div class="pf-title"><span class="ico">📋</span><h2>Analyse Marché</h2></div><p class="pf-sub">Analyse CCTP, DPGF et pièces marché orientée CVC · Plomberie · Génie Climatique</p>', unsafe_allow_html=True)
+    st.markdown('<div class="pf-ai-note"><strong>👁 Aperçu — fonctionnalité en développement</strong><br>Cette page est une démonstration visuelle. Aucune analyse IA ni consommation API n’est effectuée.</div>', unsafe_allow_html=True)
+    st.markdown("**Documents du marché**")
+    st.markdown('<span class="pf-doc-chip">📄 CCTP CVC</span><span class="pf-doc-chip">📄 DPGF CVC</span><span class="pf-doc-chip">📄 CCTP GTB</span><span class="pf-doc-chip">📄 DPGF GTB</span>', unsafe_allow_html=True)
+    st.caption("Exemple de présentation : les documents réels seront déposés ici lors de l’activation du module.")
+    st.markdown("### Projet : RHR Marseille")
+    st.caption("Lot analysé : CVC · 4 documents analysés · Démonstration")
+    st.markdown("""<div class="pf-market-grid">
+      <div class="pf-market-kpi"><div class="n">18</div><div class="l">🟢 Prestations identifiées</div></div>
+      <div class="pf-market-kpi"><div class="n">6</div><div class="l">🟠 Points à vérifier</div></div>
+      <div class="pf-market-kpi"><div class="n">5</div><div class="l">🔗 Interfaces / limites</div></div>
+      <div class="pf-market-kpi"><div class="n">3</div><div class="l">🔴 Incohérences potentielles</div></div>
+    </div>""", unsafe_allow_html=True)
+    st.markdown("### Synthèse CMT")
+    st.markdown("""<div class="pf-finding ok"><h4>🔥 Chaufferie / PAC / groupe froid</h4><p><strong>Prestations repérées :</strong> production chaud/froid, équipements hydrauliques, raccordements, régulation et mise en service.</p><p><strong>À contrôler :</strong> puissances, accessoires, limites électriques/GTB et prestations de manutention.</p><div class="pf-source">Source de démonstration · CCTP CVC · page 12 · § Production thermique</div></div>""", unsafe_allow_html=True)
+    with st.expander("📖 Voir le passage source — Chaufferie / PAC"):
+        st.caption("Exemple de rendu — le texte ci-dessous est fictif et sert uniquement à montrer l’interface.")
+        st.markdown("**Document :** CCTP CVC  ·  **Page :** 12  ·  **Article :** Production thermique")
+        st.markdown('<div class="pf-source-box">[PASSAGE SOURCE DU CCTP AFFICHÉ ICI À L’IDENTIQUE]<br>La version opérationnelle rappellera le texte exact de la page ayant généré le constat.</div>', unsafe_allow_html=True)
+    st.markdown("""<div class="pf-finding ok"><h4>🧰 Réseaux et matériaux</h4><p><strong>Matériaux détectés :</strong> acier noir, acier galvanisé, cuivre, multicouche, PVC et PEHD.</p><p><strong>Détails prévus :</strong> DN/diamètres, assemblages, raccords, supports, calorifuge et protections lorsqu’ils sont prescrits.</p><div class="pf-source">Source de démonstration · CCTP CVC · page 21 · § Réseaux hydrauliques</div></div>""", unsafe_allow_html=True)
+    with st.expander("📖 Voir le passage source — Réseaux et matériaux"):
+        st.caption("Exemple de rendu — passage non issu d’un document réel.")
+        st.markdown("**Document :** CCTP CVC  ·  **Page :** 21  ·  **Article :** Réseaux hydrauliques")
+        st.markdown('<div class="pf-source-box">[PASSAGE SOURCE EXACT : matériau, diamètre, assemblage, calorifuge et prescriptions de pose]</div>', unsafe_allow_html=True)
+    st.markdown("""<div class="pf-finding link"><h4>🔗 Interface CVC ↔ Gros Œuvre</h4><p><strong>Point détecté :</strong> répartition des réservations et carottages entre lots selon les prescriptions du marché.</p><p><strong>Action :</strong> vérifier les diamètres nécessaires et communiquer les réservations hors périmètre CVC.</p><div class="pf-source">Source de démonstration · CCTP CVC · page 8 · § Limites de prestations</div></div>""", unsafe_allow_html=True)
+    with st.expander("📖 Voir le passage source — Interface Gros Œuvre"):
+        st.caption("Exemple de rendu — la version active affichera la clause exacte, sans reformulation.")
+        st.markdown("**Document :** CCTP CVC  ·  **Page :** 8  ·  **Article :** Limites de prestations")
+        st.markdown('<div class="pf-source-box">[CLAUSE EXACTE DU CCTP RELATIVE AUX RÉSERVATIONS / CAROTTAGES]</div>', unsafe_allow_html=True)
+    st.markdown("""<div class="pf-finding warn"><h4>🟠 Condensats — À vérifier</h4><p>Une prestation est décrite au CCTP mais aucun poste DPGF clairement identifiable n’est présenté dans cet aperçu.</p><p><strong>Action :</strong> contrôler le chiffrage avant remise de l’offre.</p><div class="pf-source">Comparaison de démonstration · CCTP ↔ DPGF</div></div>""", unsafe_allow_html=True)
+    with st.expander("📖 Voir les passages source — CCTP ↔ DPGF"):
+        st.caption("Exemple visuel : dans la version opérationnelle, les deux passages seront affichés côte à côte avec leurs pages.")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**CCTP CVC · page X**")
+            st.markdown('<div class="pf-source-box">[PASSAGE CCTP EXACT]</div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown("**DPGF CVC · page Y**")
+            st.markdown('<div class="pf-source-box">[POSTE DPGF CORRESPONDANT OU ABSENCE DE POSTE CLAIR]</div>', unsafe_allow_html=True)
+    st.info("Le futur module couvrira notamment chauffage, climatisation, chaufferie, PAC/groupes froids, ventilation, plomberie, GTB/régulation, matériaux, DN, calorifuge, supports, essais, mises en service et interfaces entre lots.")
 
 if nav == "Mon compte ⌄":
     st.subheader("👤 Mon compte")
