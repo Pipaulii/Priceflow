@@ -1777,26 +1777,6 @@ if nav == "⚖ Comparatif":
 
 
 
-# Historique personnel : affiché uniquement en bas des pages qui enregistrent des documents.
-# Cela évite qu'il apparaisse au-dessus d'Analyse Marché ou de Mon compte.
-if nav in ["▣ Achats / Fournisseurs", "🏗 Locations"]:
-    st.divider()
-    with st.expander("Historique de contrôle", expanded=False):
-        if st.session_state.history:
-            st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True, hide_index=True)
-            c1, c2 = st.columns([1, 5])
-            with c1:
-                if st.button("↻ Actualiser"):
-                    load_cloud_history(force=True)
-                    st.rerun()
-            with c2:
-                hist_csv = pd.DataFrame(st.session_state.history).to_csv(index=False, sep=";").encode("utf-8-sig")
-                st.download_button("Exporter l'historique CSV", hist_csv, "historique_extracteur.csv", "text/csv")
-        else:
-            st.caption("Aucun document traité pour le moment.")
-
-    st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
-
 if nav == "📋 Analyse Marché":
     st.markdown('<div class="pf-title"><span class="ico">📋</span><h2>Analyse Marché</h2></div><p class="pf-sub">Analyse CCTP, DPGF et pièces marché orientée CVC · Plomberie · Génie Climatique</p>', unsafe_allow_html=True)
     st.markdown('<div class="pf-ai-note"><strong>👁 Aperçu — fonctionnalité en développement</strong><br>Cette page est une démonstration visuelle. Aucune analyse IA ni consommation API n’est effectuée.</div>', unsafe_allow_html=True)
@@ -1938,5 +1918,30 @@ if nav == "Mon compte ⌄":
 
     if st.button("🚪 Se déconnecter", use_container_width=False):
         logout_priceflow()
+
+# Historique personnel : toujours affiché tout en bas de chaque onglet.
+# Le contenu propre à la page est rendu en premier, puis l’historique juste avant le footer.
+st.divider()
+with st.expander("Historique de contrôle", expanded=False):
+    if st.session_state.history:
+        st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True, hide_index=True)
+        c1, c2 = st.columns([1, 5])
+        with c1:
+            if st.button("↻ Actualiser", key=f"refresh_history_{nav}"):
+                load_cloud_history(force=True)
+                st.rerun()
+        with c2:
+            hist_csv = pd.DataFrame(st.session_state.history).to_csv(index=False, sep=";").encode("utf-8-sig")
+            st.download_button(
+                "Exporter l'historique CSV",
+                hist_csv,
+                "historique_extracteur.csv",
+                "text/csv",
+                key=f"export_history_{nav}",
+            )
+    else:
+        st.caption("Aucun document traité pour le moment.")
+
+st.caption("Historique de contrôle indépendant des fichiers Excel. Le Total HT n'est jamais ajouté à l'export.")
 
 st.markdown('<div class="copyright">© 2026 Michel RACHOU · PriceFlow</div>', unsafe_allow_html=True)
