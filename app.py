@@ -28,12 +28,12 @@ st.markdown("""
 :root{color-scheme:light!important;--pf-bg:#f7f9fc;--pf-panel:#fff;--pf-border:#dbe4ee;--pf-blue:#0b8cff;--pf-text:#071b33;--pf-muted:#62748a;--pf-green:#12a56a}
 html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],.stApp{background:var(--pf-bg)!important;color:var(--pf-text)!important;font-family:Inter,"Segoe UI",Arial,sans-serif!important}
 [data-testid="stHeader"]{background:transparent!important;height:2.2rem}.block-container{max-width:1540px;padding-top:.9rem;padding-bottom:2rem}
-.hero{height:96px;box-sizing:border-box;padding:17px 26px;border:1px solid #e6ebf1;border-radius:17px;background:#fff;box-shadow:0 10px 32px rgba(31,55,84,.10);margin:0 0 14px}
+.hero{height:108px;box-sizing:border-box;padding:17px 26px;border:1px solid #e6ebf1;border-radius:17px;background:#fff;box-shadow:0 10px 32px rgba(31,55,84,.10);margin:0 0 14px}
 .hero h1{margin:0;font-size:2.15rem;line-height:1.05;font-weight:850;letter-spacing:-.05em}.hero .price{color:#071b33}.hero .flow{color:#0b8cff}.hero p{margin:.45rem 0 0;color:#62748a;font-size:.94rem}.copyright{font-size:.78rem;color:#8190a3;margin-top:.8rem}
 /* Navigation intégrée dans le header, comme la maquette */
 [data-testid="stTabs"]>div:first-child{position:relative;z-index:20}
-[data-baseweb="tab-list"]{position:relative!important;top:-91px!important;margin-left:315px!important;width:calc(100% - 340px)!important;height:78px!important;align-items:center!important;gap:12px!important;margin-bottom:-76px!important;border-bottom:0!important;background:transparent!important}
-button[data-baseweb="tab"]{height:76px!important;padding:0 18px!important;border-radius:0!important;color:#17283b!important;background:transparent!important;font-size:.98rem!important;border:0!important}
+[data-baseweb="tab-list"]{position:relative!important;top:-103px!important;margin-left:330px!important;width:calc(100% - 355px)!important;height:82px!important;align-items:center!important;gap:12px!important;margin-bottom:-82px!important;border-bottom:0!important;background:transparent!important}
+button[data-baseweb="tab"]{height:82px!important;padding:0 18px!important;border-radius:0!important;color:#17283b!important;background:transparent!important;font-size:.98rem!important;border:0!important}
 button[data-baseweb="tab"] p{color:inherit!important;font-size:.98rem!important;white-space:nowrap!important}
 button[data-baseweb="tab"]:hover{color:var(--pf-blue)!important;background:#f5faff!important}
 button[data-baseweb="tab"][aria-selected="true"],button[data-baseweb="tab"][aria-selected="true"] p{color:var(--pf-blue)!important;font-weight:700!important}
@@ -1377,10 +1377,11 @@ require_login()
 load_cloud_history()
 
 
-tab_achats, tab_location, tab_compare, tab_market, tab_account = st.tabs(["▣  Achats / Fournisseurs", "🏗  Locations", "⚖  Comparatif", "📋  Analyse Marché", "Mon compte ⌄"])
+tab_achats, tab_location, tab_compare, tab_account = st.tabs(["▣  Achats / Fournisseurs", "🏗  Locations", "⚖  Comparatif", "Mon compte ⌄"])
 
 with tab_achats:
     st.subheader("📦 Achats / Fournisseurs")
+    st.markdown('<p class="pf-sub">Importez vos documents fournisseurs et analysez automatiquement vos achats.</p>', unsafe_allow_html=True)
 
     top1, top2 = st.columns([5, 1])
     with top2:
@@ -1566,6 +1567,7 @@ with tab_achats:
 
 with tab_location:
     st.subheader("🏗️ Locations")
+    st.markdown('<p class="pf-sub">Analysez vos devis de location et retrouvez rapidement les coûts de vos matériels.</p>', unsafe_allow_html=True)
 
     if "location_uploader_key" not in st.session_state:
         st.session_state.location_uploader_key = 0
@@ -1764,53 +1766,6 @@ with tab_compare:
                     else: st.warning("Aucune ligne exploitable pour la comparaison.")
                 else: st.warning("Aucune ligne exploitable pour la comparaison.")
 
-
-
-with tab_market:
-    st.markdown('<div class="pf-title"><span class="ico">📋</span><h2>Analyse Marché</h2></div><p class="pf-sub">Analyse CCTP, DPGF et pièces marché orientée CVC · Plomberie · Génie Climatique</p>', unsafe_allow_html=True)
-    st.markdown('<div class="pf-ai-note"><strong>Analyse traçable :</strong> PriceFlow ne conserve dans le rapport que les constats dont le passage source a été retrouvé dans la page du PDF. Les points ambigus sont présentés comme « à vérifier », jamais comme une erreur certaine.</div>', unsafe_allow_html=True)
-    market_files=st.file_uploader("Déposez les pièces marché (CCTP, DPGF, GTB, généralités…)",type=["pdf"],accept_multiple_files=True,key="market_pdfs")
-    if market_files:
-        chips=''.join(f'<span class="pf-doc-chip">{html.escape(f.name)}</span>' for f in market_files)
-        st.markdown(chips,unsafe_allow_html=True)
-        c1,c2=st.columns([4,1])
-        with c2:
-            launch=st.button("🔎 Analyser le marché",type="primary",use_container_width=True)
-        if launch:
-            if not st.secrets.get("OPENAI_API_KEY", ""):
-                st.error("L'analyse intelligente nécessite OPENAI_API_KEY dans les Secrets Streamlit. Le reste de PriceFlow continue de fonctionner normalement.")
-            else:
-                docs=[]
-                with st.spinner("Lecture des pièces marché et analyse CVC/Plomberie…"):
-                    for f in market_files:
-                        try: docs.append({"name":f.name,"pages":market_pdf_pages(f.getvalue())})
-                        except Exception as e: st.warning(f"{f.name} : lecture impossible ({e})")
-                    data,err=analyse_market_with_ai(docs) if docs else (None,"Aucun document lisible")
-                if err: st.error(err)
-                elif data:
-                    st.session_state.market_analysis=data
-                    track_usage("analyse_marche",{"documents":len(docs)})
-        data=st.session_state.get("market_analysis")
-        if data:
-            st.markdown(f'### {html.escape(str(data.get("projet") or "Analyse du marché"))}')
-            st.caption(f'Lot analysé : {data.get("lot") or "CVC / Plomberie"} · {len(market_files)} document(s) chargé(s)')
-            if data.get("synthese"): st.info(data["synthese"])
-            findings=data.get("findings",[])
-            cats=[("prestations","🟢","Prestations identifiées"),("points_verifier","🟠","Points à vérifier"),("interfaces","🔗","Interfaces / limites"),("incoherences","🔴","Incohérences potentielles")]
-            counts={k:sum(1 for f in findings if f.get("category")==k) for k,_,_ in cats}
-            st.markdown('<div class="pf-market-grid">'+''.join(f'<div class="pf-market-kpi"><div class="n">{ico} {counts[k]}</div><div class="l">{lab}</div></div>' for k,ico,lab in cats)+'</div>',unsafe_allow_html=True)
-            for cat,ico,label in cats:
-                subset=[f for f in findings if f.get("category")==cat]
-                if not subset: continue
-                st.markdown(f'### {ico} {label}')
-                for idx,f in enumerate(subset):
-                    cls={"prestations":"ok","points_verifier":"warn","interfaces":"link","incoherences":"danger"}.get(cat,"")
-                    st.markdown(f'<div class="pf-finding {cls}"><h4>{html.escape(str(f.get("title","Point relevé")))}</h4><p>{html.escape(str(f.get("analysis","")))}</p><div class="pf-source">📄 {html.escape(str(f.get("document","")))} · Page {f.get("page","—")} · {html.escape(str(f.get("section") or "paragraphe non identifié"))}</div></div>',unsafe_allow_html=True)
-                    with st.expander(f'📖 Voir le passage source — {f.get("title","Point relevé")}',expanded=False):
-                        st.caption(f'{f.get("document","")} · page {f.get("page","—")} · {f.get("section") or "paragraphe non identifié"}')
-                        st.markdown(f'<div class="pf-source-box">{html.escape(str(f.get("quote","")))}</div>',unsafe_allow_html=True)
-            report=market_report_excel(data)
-            st.download_button("⬇ Télécharger le rapport d’analyse",data=report,file_name="PriceFlow_Analyse_Marche.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",type="primary",use_container_width=True)
 
 
 st.divider()
