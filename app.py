@@ -1845,8 +1845,12 @@ if nav == "▣ Achats / Fournisseurs":
     )
 
     if uploaded:
+        progress = st.progress(0, text=f"Lecture du PDF — {uploaded.name}")
+        st.caption("La barre avance par étapes terminées. La lecture des scans (OCR) peut prendre plus de temps.")
         try:
-            documents = purchase_documents(uploaded.getvalue())
+            with st.spinner(f"Lecture de {uploaded.name} — OCR si nécessaire…", show_time=True):
+                documents = purchase_documents(uploaded.getvalue())
+            progress.progress(0.5, text="PDF lu — extraction des articles")
             selected = 0
             if len(documents) > 1:
                 st.info(f"Ce PDF contient {len(documents)} bons distincts. Choisissez celui à importer.")
@@ -1854,7 +1858,9 @@ if nav == "▣ Achats / Fournisseurs":
             part_number, part_bytes, part_text, used_ocr = documents[selected]
             source_upload = io.BytesIO(part_bytes)
             source_upload.name = uploaded.name if len(documents) == 1 else f"{Path(uploaded.name).stem}_BL_{part_number}.pdf"
-            rows, supplier, doc_number, total_ht, extra_charges = extract_document(part_bytes, part_text)
+            with st.spinner("Extraction des articles et contrôle des montants…", show_time=True):
+                rows, supplier, doc_number, total_ht, extra_charges = extract_document(part_bytes, part_text)
+            progress.progress(1.0, text=f"Lecture terminée — {len(rows)} lignes extraites")
             if used_ocr:
                 st.info("Document lu par OCR : vérifiez les références et désignations dans l'aperçu, même lorsque les totaux concordent.")
 
@@ -2019,6 +2025,7 @@ if nav == "▣ Achats / Fournisseurs":
                 st.warning("Aucune ligne article reconnue sur ce document. Le format devra être ajouté à l'extracteur.")
 
         except Exception as e:
+            progress.empty()
             st.error(f"Erreur de lecture du PDF : {e}")
 
 if nav == "🏗 Locations":
@@ -2041,8 +2048,12 @@ if nav == "🏗 Locations":
     )
 
     if uploaded_loc:
+        progress = st.progress(0, text=f"Lecture du PDF — {uploaded_loc.name}")
+        st.caption("La barre avance par étapes terminées. La lecture des scans (OCR) peut prendre plus de temps.")
         try:
-            loc = extract_rental(uploaded_loc.getvalue())
+            with st.spinner(f"Lecture de {uploaded_loc.name} — OCR si nécessaire…", show_time=True):
+                loc = extract_rental(uploaded_loc.getvalue())
+            progress.progress(1.0, text=f"Lecture terminée — {len(loc['Lignes'])} lignes extraites")
             c1, c2 = st.columns(2)
             c1.metric("Loueur", loc["Loueur"])
             c2.metric("N° document", loc["N° document"])
@@ -2125,6 +2136,7 @@ if nav == "🏗 Locations":
             else:
                 st.warning("Aucune ligne de location reconnue sur ce document.")
         except Exception as e:
+            progress.empty()
             st.error(f"Erreur de lecture du PDF Location : {e}")
 
 
@@ -2137,12 +2149,20 @@ if nav == "⚖ Comparatif":
             st.info("Ajoutez au moins 2 devis pour lancer la comparaison.")
         else:
             offers, errors = [], []
-            for f in compare_files:
+            document_count = len(compare_files)
+            progress = st.progress(0, text=f"Analyse des devis : 0 / {document_count} documents traités")
+            st.caption("La barre avance à chaque PDF terminé. La lecture des scans (OCR) peut prendre plus de temps.")
+            for index, f in enumerate(compare_files, 1):
+                progress.progress((index - 1) / document_count, text=f"Document {index} / {document_count} — {f.name}")
                 try:
-                    rws, sup, num, tht, extras = extract_document(f.getvalue())
+                    with st.spinner(f"Lecture de {f.name} — OCR si nécessaire…", show_time=True):
+                        rws, sup, num, tht, extras = extract_document(f.getvalue())
                     offers.append({"Fichier":f.name,"Fournisseur":sup,"N° document":num,"Total HT":tht,"Lignes":rws})
                 except Exception as e:
                     errors.append(f"{f.name} : {e}")
+                finally:
+                    progress.progress(index / document_count, text=f"Analyse des devis : {index} / {document_count} documents traités")
+            progress.progress(1.0, text=f"Lecture terminée — {len(offers)} devis lus, {len(errors)} échec(s)")
             if errors: st.warning("Certains fichiers n'ont pas pu être lus : " + " | ".join(errors))
             if offers:
                 sig=("comparatif",tuple((o["Fichier"],o["N° document"]) for o in offers))
