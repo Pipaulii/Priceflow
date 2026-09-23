@@ -48,7 +48,7 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],.stApp{backg
 [data-testid="stFileUploaderDropzone"]{min-height:78px!important;background:#f7fbff!important;border:1px solid #b8d9f8!important;border-radius:12px!important;padding:12px 16px!important}[data-testid="stFileUploaderDropzone"] button{background:#0b8cff!important;color:#fff!important;border-color:#0b8cff!important}
 div[data-testid="stMetric"]{background:#fff;border:1px solid #d6e0ea;padding:16px 20px;border-radius:13px;box-shadow:0 3px 12px rgba(31,55,84,.035)}div[data-testid="stMetricLabel"] p{font-size:.92rem!important;color:#25384d!important}div[data-testid="stMetricValue"]{color:#071b33!important;font-size:1.72rem!important}
 [data-testid="stAlert"]{border-radius:10px!important}.auth-card{max-width:620px;margin:1.2rem auto 0;padding:1.35rem;border:1px solid var(--pf-border);border-radius:16px;background:#fff}
-[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dbe5ef;border-radius:11px;overflow:hidden;background:#fff!important}[data-testid="stDataFrame"]>div,[data-testid="stDataFrame"] iframe,[data-testid="stTable"]>div{background:#fff!important}[data-testid="stExpander"]{background:#fff!important;border:1px solid #dbe5ef!important;border-radius:10px!important}
+[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dbe5ef;border-radius:11px;overflow:hidden}[data-testid="stExpander"]{background:#fff!important;border:1px solid #dbe5ef!important;border-radius:10px!important}
 div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]){display:none!important}
 h1,h2,h3,h4,h5,h6,p,label,[data-testid="stMarkdownContainer"]{color:var(--pf-text)}[data-testid="stCaptionContainer"],.stCaption{color:var(--pf-muted)!important}
 h3{font-size:1.75rem!important;font-weight:800!important;letter-spacing:-.02em!important;margin-top:.65rem!important}
@@ -388,51 +388,11 @@ def text_rows(text, supplier):
     lines = [clean(x) for x in text.splitlines() if clean(x)]
 
     if supplier == "FIRST ROBINETTERIE":
-        # Trame First Robinetterie :
-        # Référence | Conditionnement | Désignation | Quantité + unité | PU HT | Montant HT
-        # Les lignes d'en-tête (LS, COLISAGE, LIVRAISON, Commande...) et
-        # la zone « Reste à livrer » ne sont jamais exportées.
-        in_remainder = False
-        pat = re.compile(
-            r"^([A-Z0-9][A-Z0-9./_-]{4,})\s+"
-            r"(\d+(?:[.,]\d+)?)\s+"
-            r"(.+?)\s+"
-            r"(\d+(?:[.,]\d+)?)\s+(?:ML|PCE|U|M|KG|BAG|ENS|LOT)\s+"
-            r"(\d+(?:[.,]\d{1,4})?)\s+"
-            r"(-?\d+(?:[.,]\d{2}))$",
-            re.I,
-        )
+        pat = re.compile(r"^\S+\s+\d+[,.]\d+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:ML|PCE|U|M|KG|BAG)\s+(\d+(?:[.,]\d{1,4})?)\s+\d+(?:[.,]\d+)$", re.I)
         for line in lines:
-            low = line.lower()
-            if "reste à livrer" in low or "reste a livrer" in low:
-                in_remainder = True
-                continue
-            if in_remainder:
-                # La zone suivante est informative et n'a pas de Montant HT facturé.
-                if any(k in low for k in ["base ht", "eco-taxe", "total ht", "montant tva"]):
-                    in_remainder = False
-                else:
-                    continue
-
-            if any(low.startswith(x) for x in [
-                "ls", "colisage", "livraison", "commande", "votre référence",
-                "votre reference", "contribution rep"
-            ]):
-                continue
-
             m = pat.match(line)
-            if not m:
-                continue
-            ref, _cond, desc, qty_s, pu_s, _amount = m.groups()
-            qty, pu = fr_float(qty_s), fr_float(pu_s)
-            if qty is None or pu is None or qty <= 0 or pu < 0:
-                continue
-            rows.append({
-                "Référence": ref,
-                "Désignation": clean(desc),
-                "Quantité": qty,
-                "Prix unitaire": pu,
-            })
+            if m:
+                rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
 
     elif supplier == "ANCONETTI":
         pat = re.compile(r"^\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:PCE|ML|M|U|KG)\s+(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)$", re.I)
@@ -889,7 +849,7 @@ def fmt_money(value):
 
 def rental_supplier(text):
     low = text.lower()
-    if "loxam" in low and "offre de location" in low:
+    if "loxam" in low and ("offre de location" in low or "retour de location" in low):
         return "LOXAM"
     if "actis location" in low or "actemis vitrolles" in low:
         return "ACTIS LOCATION"
@@ -984,7 +944,7 @@ def extract_rental(pdf_bytes):
     elif supplier == "LOXAM":
         # Le texte LOXAM duplique parfois chaque caractère dans les libellés.
         # Le numéro imprimé après N° est lui aussi parfois doublé caractère par caractère.
-        m = re.search(r"N[°º]\s+([0-9]{16,})\s+dduu\s+\d{1,2}/\d{1,2}/\d{2}", text, re.I)
+        m = re.search(r"N[°º]\s+([0-9-]{16,})\s+dduu\s+\d{1,2}/\d{1,2}/\d{2}", text, re.I)
         if m:
             raw = m.group(1)
             if len(raw) % 2 == 0 and all(raw[i] == raw[i+1] for i in range(0, len(raw), 2)):
@@ -1005,17 +965,24 @@ def extract_rental(pdf_bytes):
             result["Date début"] = m.group(2)
             result["Date fin"] = m.group(3)
 
-        m = re.search(r"\d{3}-\d{4}\s+(.+?)\n", text)
+        # Matériel : les offres LOXAM placent souvent le code avant le libellé,
+        # tandis que les retours de location commencent directement par le matériel.
+        m = re.search(r"(?m)^\s*\d+\s+(.+?\b\d{3}-\d{4}\b.*?)\s*$", text)
         if m:
             result["Matériel"] = clean(m.group(1))
+        else:
+            m = re.search(r"\d{3}-\d{4}\s+(.+?)\n", text)
+            if m:
+                result["Matériel"] = clean(m.group(1))
 
         # Lignes chiffrées
         line_patterns = [
             ("LOCATION / TOTAL PÉRIODE", r"Total période\s+([0-9 ]+[,.]\d{2})"),
             ("GARANTIE DOMMAGES", r"(?:Garantie dommages|GGaarraannttiiee ddoommmmaaggeess)\s+([0-9 ]+[,.]\d{2})"),
             ("CONTRIBUTION VERTE", r"Contribution verte\s+([0-9 ]+[,.]\d{2})"),
-            ("TRANSPORT ALLER", r"Transport Aller\s+([0-9 ]+[,.]\d{2})"),
-            ("TRANSPORT RETOUR", r"Transport Retour\s+([0-9 ]+[,.]\d{2})"),
+            ("TRANSPORT ALLER", r"(?:Transport Aller|Forfait transport aller)\s+([0-9 ]+[,.]\d{2})"),
+            ("TRANSPORT RETOUR", r"(?:Transport Retour|Forfait transport retour)\s+([0-9 ]+[,.]\d{2})"),
+            ("CARBURANT GAZOLE NON ROUTIER", r"CARBURANT GAZOLE NON ROUTIER\s+[0-9 ]+[,.]\d{2}\s+([0-9 ]+[,.]\d{2})"),
             ("MAJORATION TRANSPORT RETOUR", r"MAJORATION TRANSPORT RETOUR.*?\s([0-9 ]+[,.]\d{2})\s*$"),
             ("MAJORATION TRANSPORT ALLER", r"MAJORATION TRANSPORT ALLER.*?\s([0-9 ]+[,.]\d{2})\s*$"),
             ("FORFAIT RECHARGE ÉLECTRIQUE", r"FORFAIT RECHARGE ELEC\.?[^\n]*?\s([0-9 ]+[,.]\d{2})\s*$"),
@@ -1025,8 +992,11 @@ def extract_rental(pdf_bytes):
             if m:
                 result["Lignes"].append({"Désignation": label, "Montant HT": fr_float(m.group(1))})
 
-        # Total prévisionnel HT (libellé normal ou caractères doublés).
-        m = re.search(r"(?:Total Prévisionnel HT|TToottaall PPrréévviissiioonnnneell HHTT)\s+([0-9 ]+[,.]\d{2})", text, re.I)
+        # Total HT : offre prévisionnelle ou retour de location.
+        m = re.search(
+            r"(?:Total Prévisionnel HT|TToottaall PPrréévviissiioonnnneell HHTT|Total HT|TToottaall HHTT)\s+([0-9 ]+[,.]\d{2})",
+            text, re.I
+        )
         if m:
             result["Total HT document"] = fr_float(m.group(1))
 
@@ -1459,7 +1429,7 @@ if nav == "▣ Achats / Fournisseurs":
                 export_rows = []
                 for r in rows:
                     export_rows.append({
-                        "Référence": str(r.get("Référence", "") or ""),
+                        "Référence": "",
                         "Désignation": str(r.get("Désignation", "") or ""),
                         "Quantité": r.get("Quantité"),
                         "Prix unitaire": r.get("Prix unitaire"),
