@@ -9,9 +9,11 @@ import urllib.error
 import time
 from datetime import datetime
 from pathlib import Path
+from functools import lru_cache
+from decimal import Decimal, ROUND_HALF_UP
 
 import pdfplumber
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 import pandas as pd
 import streamlit as st
 from streamlit_cookies_controller import CookieController
@@ -166,13 +168,15 @@ def detect_document_number(text, supplier):
         if m: return re.sub(r"\s+", "", m.group(1))
 
     if supplier == "ANCONETTI":
+        m = re.search(r"\d{2}/\d{2}/\d{4}\s*(\d{7})(?!\d)", text)
+        if m: return m.group(1)
         # Bon d'enlèvement / débit Salica Anconetti scanné.
         m = re.search(r"DEBIT\s+du\s+N[o°]?\s*\n?.{0,100}?\b(\d{6,8})\b", text, re.I | re.S)
         if m: return m.group(1)
         m = re.search(r"O\s*F\s*F\s*R\s*E\s*D\s*E\s*P\s*R\s*I\s*X\s*\n\s*([0-9.]+)", text, re.I)
         if m: return m.group(1)
 
-    if supplier == "MPS":
+    if supplier in ("MPS", "PROLIANS"):
         compact = re.sub(r"\s+", "", text)
         m = re.search(r"Bulletindelivraison\*?([0-9]{5,})", compact, re.I)
         if m: return m.group(1)
@@ -201,6 +205,13 @@ def detect_document_number(text, supplier):
     return "Non détecté"
 
 def detect_total_ht(text, supplier=None):
+    if supplier == "ANCONETTI":
+        matches = re.findall(r"([0-9][0-9 .]*[,.][0-9]{2})\s*H\.?T\.?\s*$", text, re.M | re.I)
+        if matches:
+            return fr_float(matches[-1])
+    if supplier == "YACK":
+        m = re.search(r"MONTANT TOTAL DEVIS BASE HT\s+([0-9][0-9 .]*[,.][0-9]{2})", text, re.I)
+        if m: return fr_float(m.group(1))
     # Détection du Total HT quel que soit son emplacement sur la ligne.
     # Compatible notamment : Outillage Méridional, First, Anconetti, MPS,
     # Aredis, PUM et CEDEO.
@@ -208,17 +219,6 @@ def detect_total_ht(text, supplier=None):
     money = r"([0-9][0-9 .]*[,.][0-9]{2,4})"
 
     # Salica Anconetti scanné : le total est imprimé sous la forme "238,43 H.T".
-    if supplier == "ANCONETTI":
-        vals = []
-        # Bons d'enlèvement : "238,43 H.T" / "428,30 H.T".
-        vals += [fr_float(x) for x in re.findall(money + r"\s+H\s*\.?\s*T\s*\.?\b", normalized, re.I)]
-        # Pages intermédiaires : "Sous Total HT 295,57".
-        vals += [fr_float(x) for x in re.findall(r"Sous\s+Total\s+H\s*\.?\s*T\s*\.?[^0-9]*" + money, normalized, re.I)]
-        vals = [x for x in vals if x is not None]
-        if vals:
-            # Un PDF peut contenir plusieurs bons/pages scannés : contrôle sur leur somme.
-            return round(sum(vals), 2)
-
     # Totaux spécifiques aux nouveaux formats fournisseurs.
     specific_patterns = {
         "ALDES": [r"Total\s+net\s+HT\s*:\s*" + money, r"Total\s+Net\s*\(HT\)\s+articles\s*:\s*" + money],
@@ -252,6 +252,7 @@ def detect_total_ht(text, supplier=None):
 
         # Ne jamais prendre un sous-total "hors écocontribution".
         if any(x in low for x in [
+            "sous total", "sous-total",
             "total ht hors ecocontrib",
             "total ht hors éco",
             "total h.t. hors ecocontrib",
@@ -277,7 +278,7 @@ def detect_total_ht(text, supplier=None):
         low = line.lower()
         if not re.search(r"\btotal\s+h\s*\.?\s*t\s*\.?", low):
             continue
-        if any(x in low for x in ["hors ecocontrib", "hors éco"]):
+        if any(x in low for x in ["hors ecocontrib", "hors éco", "sous total", "sous-total"]):
             continue
 
         # Montant éventuel situé après le libellé, même avec texte parasite.
@@ -300,6 +301,9 @@ def detect_total_ht(text, supplier=None):
 
 def detect_extra_charges(text):
     """Détecte les frais complémentaires réellement facturés."""
+    direct = explicit_eco_charges(text)
+    if direct is not None:
+        return direct
     charges = []
     seen = set()
 
@@ -442,6 +446,9 @@ def table_rows(pdf):
 
 def text_rows(text, supplier):
     rows = []
+    if supplier == "ANCONETTI":
+        text = re.sub(r"(?m)^(\d{5,8})[.:]?(?=[A-Z])", r"\1 ", text)
+        text = re.sub(r"(?<=\d),\s+(?=\d)", ",", text)
     lines = [clean(x) for x in text.splitlines() if clean(x)]
 
     if supplier == "FIRST ROBINETTERIE":
@@ -515,30 +522,20 @@ def text_rows(text, supplier):
                 rows.append({"Référence":m.group(1),"Désignation":clean(m.group(2)),"Quantité":fr_float(m.group(3)),"Prix unitaire":fr_float(m.group(4))})
 
     elif supplier == "YACK":
-        # Les descriptions YACK sont multilignes ; la référence démarre le bloc et la ligne prix le termine.
-        refs=re.compile(r"^[A-Z0-9][A-Z0-9._/-]{3,}$")
-        i=0
-        while i < len(lines):
-            if refs.match(lines[i]) and not any(x in lines[i].upper() for x in ["EAN13","TOTAL","TVA"]):
-                ref=lines[i]; desc=[]; j=i+1
-                while j < min(i+12,len(lines)):
-                    m=re.match(r"^(\d+(?:[.,]\d+)?)\s+([0-9][0-9 .]*[,.]\d{2})\s*€?\s+([0-9][0-9 .]*[,.]\d{2})\s*€?$", lines[j])
-                    if m:
-                        q=fr_float(m.group(1)); amount=fr_float(m.group(2)); pu=fr_float(m.group(3))
-                        # pdf text can expose amount then PU; select the value coherent with q*PU=amount.
-                        a,b=fr_float(m.group(2)),fr_float(m.group(3))
-                        if q and a is not None and b is not None:
-                            if abs(q*a-b) <= max(.08,abs(b)*.002): pu=a
-                            elif abs(q*b-a) <= max(.08,abs(a)*.002): pu=b
-                            else: pu=b
-                            d=clean(" ".join(x for x in desc if not x.lower().startswith("descriptif")))
-                            if d: rows.append({"Référence":ref,"Désignation":d,"Quantité":q,"Prix unitaire":pu})
-                        i=j; break
-                    if refs.match(lines[j]) and j>i+1: break
-                    if not lines[j].upper().startswith("ECOTAXE HT"):
-                        desc.append(lines[j])
-                    j+=1
-            i+=1
+        pat = re.compile(r"^([A-Z0-9][A-Z0-9._/-]{3,})\s+(.*?)\s*(\d+(?:[.,]\d+)?)\s+([0-9][0-9 ]*[,.]\d{2})\s*€\s+([0-9][0-9 ]*[,.]\d{2})\s*€$")
+        title = ""
+        for index, line in enumerate(lines):
+            if "référence produit" in line.lower():
+                title = ""
+            if line.lower().startswith("descriptif") and index and not pat.match(lines[index - 1]):
+                title = lines[index - 1]
+            m = pat.match(line)
+            if m:
+                q, pu, amount = (fr_float(m.group(i)) for i in (3, 4, 5))
+                if q and abs(q * pu - amount) < .02:
+                    desc = title or (lines[index - 1] if index else "") or clean(m.group(2)) or m.group(1)
+                    rows.append({"Référence": m.group(1), "Désignation": desc, "Quantité": q, "Prix unitaire": pu})
+                title = ""
 
     elif supplier == "VIM":
         # Factures VIM : référence + libellé + éventuelle colonne DEEE + quantité + PU + montant.
@@ -552,7 +549,7 @@ def text_rows(text, supplier):
             if not (q and pu is not None and amount is not None and abs(q*pu-amount)<=max(.12,abs(amount)*.003)):
                 continue
             # Retire une éventuelle valeur DEEE isolée en fin de désignation.
-            prefix=re.sub(r"\s+\d+(?:[.,]\d+)?$", "", prefix).strip()
+            prefix=re.sub(r"\s+\d+[.,]\d{2}$", "", prefix).strip()
             rows.append({"Référence":m.group(1),"Désignation":prefix,"Quantité":q,"Prix unitaire":pu})
 
     elif supplier == "PUM":
@@ -725,7 +722,9 @@ def text_rows(text, supplier):
                 "Référence": reference,
                 "Désignation": desc,
                 "Quantité": qty,
-                "Prix unitaire": pu_net
+                "Prix unitaire": round(montant_net / qty, 8) if qty and abs(qty * pu_net - montant_net) >= 0.005 else pu_net,
+                "Prix unitaire imprimé": pu_net,
+                "Montant imprimé": montant_net
             })
 
     elif supplier == "RICHARDSON":
@@ -740,16 +739,13 @@ def text_rows(text, supplier):
                 rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
 
     elif supplier == "FRANS BONHOMME":
-        pat = re.compile(
-            r"^\S+(?:\s+\S+)?\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"
-            r"(?:ML|PCE|U|UN|M|KG)\s+(\d+(?:[.,]\d+)?)\s*€?\s+"
-            r"\d+(?:[.,]\d+)?\s*€?$",
-            re.I
-        )
+        pat = re.compile(r"^(\d{5}\s*[A-Z])\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:ML|PCE|U|UN|M|KG)\s+(\d+(?:[.,]\d+)?)\s*€?\s+(\d+(?:[.,]\d+)?)\s*€?$", re.I)
         for line in lines:
             m = pat.match(line)
             if m:
-                rows.append({"Désignation": clean(m.group(1)), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+                q, pu, amount = (fr_float(m.group(i)) for i in (3, 4, 5))
+                if q and abs(q * pu - amount) < .02:
+                    rows.append({"Référence": re.sub(r"\s+", "", m.group(1)), "Désignation": clean(m.group(2)), "Quantité": q, "Prix unitaire": pu})
 
     elif supplier == "H-TUBE / POINT PLASTIQUE":
         pat = re.compile(
@@ -852,6 +848,133 @@ def text_rows(text, supplier):
 
     return rows
 
+def article_sum(rows):
+    """Arrondi commercial par ligne, comme sur les documents fournisseurs."""
+    return float(sum((Decimal(str(r.get("Quantité", 0) or 0)) * Decimal(str(r.get("Prix unitaire", 0) or 0))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for r in rows))
+
+
+def explicit_eco_charges(text):
+    # Un récapitulatif ne se cumule pas avec son détail par article.
+    patterns = [
+        r"DONT ECO-PARTICIPATION HT\s+([0-9][0-9 .]*[,.][0-9]{2})",
+        r"Dont\s+(?:éco|eco)-?participation\s+HT\s*:\s*([0-9][0-9 .]*[,.][0-9]{2})",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text, re.I)
+        if m:
+            return [{"label": "ÉCO-CONTRIBUTION", "amount": fr_float(m.group(1))}]
+    # VIM : colonne d'éco-participation dans le récapitulatif de facture.
+    if re.search(r"Éco\.\s*Particip\.", text, re.I):
+        m = re.search(r"^Pro\s+([0-9][0-9 .]*[,.][0-9]{2})\s*$", text, re.M | re.I)
+        if m:
+            return [{"label": "ÉCO-CONTRIBUTION", "amount": fr_float(m.group(1))}]
+    # Anconetti : chaque ligne REP représente une contribution facturée.
+    amounts = []
+    for line in text.splitlines():
+        if re.match(r"^\s*454\s*ECO\s+CONTRIBUTION", line, re.I):
+            m = re.search(r"(\d+[,.]\d+)\s+(?:PCE|FCE|ML|BTE|U|KG)\s+(\d+[,.]\d+)\s+(\d+[,.]\d+)\s*$", line, re.I)
+            if m:
+                q, pu, amount = (fr_float(m.group(i)) for i in (1, 2, 3))
+                if abs(q * pu - amount) < .011:
+                    amounts.append(amount)
+    if amounts:
+        return [{"label": "ÉCO-CONTRIBUTION", "amount": round(sum(amounts), 2)}]
+    m = re.search(r"DONT\s*ECOPART\s*([0-9]+[,.][0-9]{2})", text, re.I)
+    if m:
+        return [{"label": "ÉCO-CONTRIBUTION", "amount": fr_float(m.group(1))}]
+    return None
+
+
+@lru_cache(maxsize=1)
+def rapid_ocr_engine():
+    try:
+        from rapidocr_onnxruntime import RapidOCR
+        return RapidOCR()
+    except ImportError as exc:
+        raise RuntimeError("Ce PDF nécessite l'OCR. Ajoutez rapidocr_onnxruntime et pypdfium2 aux dépendances de PriceFlow, puis redémarrez l'application.") from exc
+
+
+def image_ocr(image):
+    import numpy as np
+    import cv2
+    array = np.array(image.convert("RGB"))
+    # Redresse les scans avant de reconstruire les lignes du tableau.
+    edges = cv2.Canny(cv2.cvtColor(array, cv2.COLOR_RGB2GRAY), 50, 150)
+    segments = cv2.HoughLinesP(edges, 1, np.pi / 1800, 100, minLineLength=array.shape[1] * .35, maxLineGap=30)
+    angles = []
+    for line in segments if segments is not None else []:
+        x1, y1, x2, y2 = np.asarray(line).reshape(-1)
+        angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+        if abs(angle) < 5:
+            angles.append(angle)
+    if angles:
+        matrix = cv2.getRotationMatrix2D((array.shape[1] / 2, array.shape[0] / 2), float(np.median(angles)), 1)
+        array = cv2.warpAffine(array, matrix, (array.shape[1], array.shape[0]), borderValue=(255, 255, 255))
+    result, _ = rapid_ocr_engine()(array, use_cls=False)
+    lines = []
+    for box, value, confidence in sorted(result or [], key=lambda r: sum(p[1] for p in r[0]) / 4):
+        y = sum(p[1] for p in box) / 4
+        height = max(p[1] for p in box) - min(p[1] for p in box)
+        if not lines or abs(lines[-1][0] - y) > height * .6:
+            lines.append([y, []])
+        lines[-1][1].append((box[0][0], value))
+    return "\n".join(" ".join(value for x, value in sorted(line)) for y, line in lines)
+
+
+@lru_cache(maxsize=8)
+def pdf_page_texts(pdf_bytes):
+    pages = []
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text(x_tolerance=2, y_tolerance=3) or ""
+            area = sum(max(0, im["x1"] - im["x0"]) * max(0, im["bottom"] - im["top"]) for im in page.images)
+            image_table = area > page.width * page.height * .15 and len(re.findall(r"\d+[,.]\d{2}", text)) < 4
+            incomplete_table = (len(text) < 1000 and re.search(r"D.signation|Total\s*:", text, re.I)
+                                and len(re.findall(r"\d+[,.]\d{2}", text)) < 4)
+            scanned = len(re.sub(r"\s", "", text)) < 120 or image_table or bool(incomplete_table)
+            if scanned:
+                text = image_ocr(page.to_image(resolution=220).original)
+            elif detect_supplier(text) == "Fournisseur non identifié" and page.images:
+                # Un logo image peut être le seul nom du fournisseur (VIM).
+                header = image_ocr(page.crop((0, 0, page.width, min(100, page.height))).to_image(resolution=180).original)
+                if detect_supplier(header) != "Fournisseur non identifié":
+                    text = header + "\n" + text
+            pages.append((text, scanned))
+    return tuple(pages)
+
+
+@lru_cache(maxsize=8)
+def purchase_documents(pdf_bytes):
+    """Sépare les BL identifiés dans un même scan, conserve leurs pages de suite."""
+    page_texts = pdf_page_texts(pdf_bytes)
+    groups = []
+    for index, (text, scanned) in enumerate(page_texts):
+        supplier = detect_supplier(text)
+        number = detect_document_number(text, supplier)
+        # Ne scinde que les bons Anconetti portant leur propre numéro de débit.
+        key = number if supplier == "ANCONETTI" and re.search(r"D\s*E\s*B\s*I\s*T", text, re.I) and number != "Non détecté" else None
+        if not groups or (key and groups[-1][0] and key != groups[-1][0]):
+            groups.append([key, []])
+        elif key and groups[-1][0] is None:
+            groups[-1][0] = key
+        groups[-1][1].append(index)
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    documents = []
+    for key, indexes in groups:
+        if len(groups) == 1:
+            data = pdf_bytes
+        else:
+            writer = PdfWriter()
+            for index in indexes:
+                writer.add_page(reader.pages[index])
+            buffer = io.BytesIO()
+            writer.write(buffer)
+            data = buffer.getvalue()
+        text = "\n".join(page_texts[i][0] for i in indexes)
+        documents.append((key or "Document", data, text, any(page_texts[i][1] for i in indexes)))
+    return tuple(documents)
+
+
 def generic_text_rows(text):
     """Moteur universel Achats : lignes article détectées par structure et contrôle qté × PU = montant."""
     rows=[]
@@ -893,10 +1016,10 @@ def generic_text_rows(text):
         for pat in patterns:
             m=pat.match(line)
             if not m: continue
-            desc=re.sub(r"\s+\d+(?:[.,]\d+)?$","",clean(m.group('desc'))).strip()
+            desc=clean(m.group("desc"))
             add(m.group('ref'),desc,m.group('q'),m.group('pu'),m.group('amt'))
             break
-    return dedupe(rows) if rows else []
+    return rows
 
 def dedupe(rows):
     out, seen = [], set()
@@ -927,41 +1050,67 @@ def ocr_pdf_text(pdf_bytes):
     return "\n".join(pages)
 
 def best_pdf_text(pdf_bytes):
-    """Lecture PDF principale. Préfère pdfplumber pour conserver les lignes/colonnes des BL.
-    PyPDF2 n'est utilisé qu'en secours ; OCR uniquement si aucune couche texte exploitable.
-    """
-    plumber_text = ""
-    pypdf_text = ""
-    try:
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            plumber_text = "\n".join(page.extract_text(x_tolerance=2, y_tolerance=3) or "" for page in pdf.pages)
-    except Exception:
-        pass
-    try:
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-        pypdf_text = "\n".join((page.extract_text() or "") for page in reader.pages).replace("\x00", "")
-    except Exception:
-        pass
+    return "\n".join(text for text, scanned in pdf_page_texts(pdf_bytes))
 
-    # Pour les BL/devis, la conservation des lignes est plus importante que la longueur brute.
-    # pdfplumber restitue notamment correctement les tableaux FIRST, alors que PyPDF2 peut
-    # fusionner les cellules et transformer une ligne article en bloc de texte.
-    if len(re.sub(r"\s+", "", plumber_text)) >= 120:
-        return plumber_text
-    if len(re.sub(r"\s+", "", pypdf_text)) >= 120:
-        return pypdf_text
 
-    text = plumber_text if len(plumber_text) >= len(pypdf_text) else pypdf_text
-    ocr = ocr_pdf_text(pdf_bytes)
-    return ocr if len(ocr) > len(text) else text
+def first_pdf_designations(pdf, rows):
+    """Lit les libellés FIRST séparément du conditionnement qui déborde visuellement."""
+    for page in pdf.pages:
+        words = page.extract_words()
+        header = next((w for w in words if re.fullmatch(r"D.signation", w["text"], re.I)), None)
+        quantity = next((w for w in words if re.fullmatch(r"Quantit.", w["text"], re.I)), None)
+        if not header or not quantity:
+            continue
+        runs, run = [], []
+        for char in page.chars:
+            if run and (abs(char["top"] - run[-1]["top"]) > 2 or char["x0"] < run[-1]["x0"] - 1):
+                runs.append(run)
+                run = []
+            run.append(char)
+        if run:
+            runs.append(run)
+        for row in rows:
+            ref = row.get("Référence", "")
+            matches = [w for w in words if w["text"] == ref and w["x0"] < header["x0"]]
+            if len(matches) != 1:
+                continue
+            y = matches[0]["top"]
+            labels = [r for r in runs if abs(r[0]["x0"] - header["x0"]) < 2 and abs(r[0]["top"] - y) < 2]
+            if len(labels) == 1:
+                label = clean("".join(c["text"] for c in labels[0] if c["x0"] < quantity["x0"]))
+                if label:
+                    row["Désignation"] = label
+    return rows
 
-def extract_document(pdf_bytes):
+
+def charges_outside_total_ht(text, supplier):
+    """FIRST affiche la REP après le Total HT ; vérifier aussi l'équation TTC."""
+    if supplier != "FIRST ROBINETTERIE":
+        return False
+    def amount(label):
+        m = re.search(label + r"\s*:?\s*([0-9][0-9 .]*[,.][0-9]{2})", text, re.I)
+        return fr_float(m.group(1)) if m else None
+    ht, vat, ttc, rep = [amount(x) for x in (r"Total HT", r"Total TVA", r"Total TTC", r"Contribution REP")]
+    return (all(x is not None for x in (ht, vat, ttc, rep)) and rep > 0
+            and abs(round(ttc - ht - vat - rep, 2)) < 0.01)
+
+
+def extract_document(pdf_bytes, text_override=None):
+    if text_override is None:
+        parts = purchase_documents(pdf_bytes)
+        if len(parts) > 1:
+            raise ValueError("Ce fichier contient plusieurs bons : choisissez le bon dans Achats / Fournisseurs.")
+        text_override = parts[0][2]
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        text = best_pdf_text(pdf_bytes)
+        text = text_override if text_override is not None else best_pdf_text(pdf_bytes)
         supplier = detect_supplier(text)
         number = detect_document_number(text, supplier)
         total_ht = detect_total_ht(text, supplier)
         extra_charges = detect_extra_charges(text)
+        if charges_outside_total_ht(text, supplier):
+            for charge in extra_charges:
+                if charge["label"] == "ÉCO-CONTRIBUTION":
+                    charge["outside_total_ht"] = True
 
         # On essaie systématiquement plusieurs moteurs : tableau PDF, parseur fournisseur
         # et parseur générique. Le meilleur résultat est retenu au lieu de dépendre
@@ -974,7 +1123,7 @@ def extract_document(pdf_bytes):
         def candidate_score(candidate):
             # Priorité à un contrôle financier cohérent ; à égalité, au plus grand
             # nombre de vraies lignes articles reconnues.
-            article_total = round(sum(float(r["Quantité"]) * float(r["Prix unitaire"]) for r in candidate), 2)
+            article_total = article_sum(candidate)
             if total_ht is None:
                 return (0, len(candidate), article_total)
             extras = round(sum(float(x.get("amount", 0) or 0) for x in extra_charges), 2)
@@ -985,12 +1134,28 @@ def extract_document(pdf_bytes):
             return (-(gap + penalty), len(candidate), article_total)
 
         rows = max(candidates, key=candidate_score) if candidates else []
+        # Une couche texte longue n'exclut pas une extraction incomplète.
+        # Une deuxième résolution peut aussi corriger un caractère OCR mal lu.
+        score = candidate_score(rows) if rows else (-float("inf"), 0, 0)
+        if not rows or (total_ht is not None and score[0] < -0.02):
+            retry_text = "\n".join(image_ocr(page.to_image(resolution=140).original) for page in pdf.pages)
+            retry_supplier = detect_supplier(retry_text)
+            retry_total = detect_total_ht(retry_text, retry_supplier)
+            same_total = total_ht is None or (retry_total is not None and abs(total_ht - retry_total) < .011)
+            if same_total and retry_supplier in (supplier, "Fournisseur non identifié"):
+                retry_rows = text_rows(retry_text, supplier)
+                if retry_rows and candidate_score(retry_rows) > score:
+                    rows = retry_rows
+                    retry_charges = detect_extra_charges(retry_text)
+                    if retry_charges:
+                        extra_charges = retry_charges
+                    if total_ht is None:
+                        total_ht = retry_total
 
         # Ne pas supprimer les lignes identiques chez AREDIS :
         # un même article peut être réellement livré/facturé deux fois sur le BL
         # (notamment lors d'un passage de page).
-        if supplier != "AREDIS":
-            rows = dedupe(rows)
+        # Les lignes physiques répétées restent des achats distincts.
 
         if supplier == "RICHARDSON" and total_ht is not None:
             extracted = round(sum(float(r["Quantité"]) * float(r["Prix unitaire"]) for r in rows), 2)
@@ -1003,6 +1168,8 @@ def extract_document(pdf_bytes):
             if missing > 0 and missing in eco_prices:
                 rows.append({"Désignation": "ECOPARTICIPATION", "Quantité": 1.0, "Prix unitaire": missing})
 
+        if supplier == "FIRST ROBINETTERIE":
+            rows = first_pdf_designations(pdf, rows)
         return rows, supplier, number, total_ht, extra_charges
 
 def extract_pdf_text(pdf_bytes):
@@ -1663,7 +1830,17 @@ if nav == "▣ Achats / Fournisseurs":
 
     if uploaded:
         try:
-            rows, supplier, doc_number, total_ht, extra_charges = extract_document(uploaded.getvalue())
+            documents = purchase_documents(uploaded.getvalue())
+            selected = 0
+            if len(documents) > 1:
+                st.info(f"Ce PDF contient {len(documents)} bons distincts. Choisissez celui à importer.")
+                selected = st.selectbox("Bon à importer", range(len(documents)), format_func=lambda i: f"BL {documents[i][0]}")
+            part_number, part_bytes, part_text, used_ocr = documents[selected]
+            source_upload = io.BytesIO(part_bytes)
+            source_upload.name = uploaded.name if len(documents) == 1 else f"{Path(uploaded.name).stem}_BL_{part_number}.pdf"
+            rows, supplier, doc_number, total_ht, extra_charges = extract_document(part_bytes, part_text)
+            if used_ocr:
+                st.info("Document lu par OCR : vérifiez les références et désignations dans l'aperçu, même lorsque les totaux concordent.")
 
             info1, info2 = st.columns(2)
             info1.metric("Fournisseur", supplier)
@@ -1686,10 +1863,7 @@ if nav == "▣ Achats / Fournisseurs":
                 # inclus dans les prix unitaires des articles.
                 # Exemple CLIM+ : les lignes "Dont éco-contribution" sont informatives
                 # et les PU articles donnent déjà exactement le Total HT.
-                articles_total = round(sum(
-                    float(r.get("Quantité", 0) or 0) * float(r.get("Prix unitaire", 0) or 0)
-                    for r in export_rows
-                ), 2)
+                articles_total = article_sum(export_rows)
 
                 charges_to_add = list(extra_charges)
                 if total_ht is not None:
@@ -1699,7 +1873,7 @@ if nav == "▣ Achats / Fournisseurs":
                     # Si les articles atteignent déjà le Total HT, l'éco-contribution
                     # est déjà comprise dans les PU : ne pas la rajouter une 2e fois.
                     if abs(gap_before_extras) <= 0.01:
-                        charges_to_add = []
+                        charges_to_add = [x for x in extra_charges if x.get("outside_total_ht")]
                     # Si les frais détectés correspondent exactement à l'écart,
                     # on les ajoute normalement (PUM, ANCONETTI, etc.).
                     elif detected_extras and abs(gap_before_extras - detected_extras) <= 0.02:
@@ -1725,23 +1899,17 @@ if nav == "▣ Achats / Fournisseurs":
 
                 # Contrôle comptable : comparaison du Total HT imprimé sur le BL
                 # avec la somme des lignes réellement extraites.
-                total_extrait = 0.0
-                for _, row in df.iterrows():
-                    try:
-                        qte = float(row["Quantité"])
-                        pu = float(row["Prix unitaire"])
-                        total_extrait += qte * pu
-                    except (TypeError, ValueError):
-                        pass
-                total_extrait = round(total_extrait, 2)
-                ecart = round(total_ht - total_extrait, 2) if total_ht is not None else None
+                total_extrait = article_sum(export_rows)
+                separate_charges = round(sum(float(x["amount"]) for x in charges_to_add if x.get("outside_total_ht")), 2)
+                control_total = round(total_ht + separate_charges, 2) if total_ht is not None else None
+                ecart = round(control_total - total_extrait, 2) if control_total is not None else None
 
                 ctrl1, ctrl2, ctrl3 = st.columns(3)
-                ctrl1.metric("Total HT du BL", fmt_money(total_ht))
+                ctrl1.metric("Total HT + REP séparée" if separate_charges else "Total HT du BL", fmt_money(control_total))
                 ctrl2.metric("Total extrait", fmt_money(total_extrait))
                 ctrl3.metric("Écart", fmt_money(ecart))
 
-                if extra_charges:
+                if charges_to_add:
                     eco_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "ÉCO-CONTRIBUTION"), 2)
                     energy_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "SURCHARGE ÉNERGIE"), 2)
                     details = []
@@ -1753,9 +1921,11 @@ if nav == "▣ Achats / Fournisseurs":
                         f"♻️ Frais complémentaires détectés : {fmt_money(extras_total)} "
                         f"({', '.join(details)}). Ils ont été regroupés en une seule ligne et ajoutés au fichier Excel."
                     )
+                    if separate_charges:
+                        st.caption(f"Total HT imprimé : {fmt_money(total_ht)} + REP facturée séparément : {fmt_money(separate_charges)}. Le contrôle inclut les deux montants.")
                 elif extra_charges and not charges_to_add:
                     st.info(
-                        "♻️ Éco-contribution détectée, mais déjà incluse dans les prix unitaires des articles. "
+                        "♻️ Éco-contribution détectée, déjà comprise dans les lignes extraites. "
                         "Elle n'est pas ajoutée une seconde fois dans l'Excel."
                     )
 
@@ -1771,7 +1941,11 @@ if nav == "▣ Achats / Fournisseurs":
                             "Le document contient peut-être une autre ligne facturée, une remise ou un frais non encore détecté."
                         )
 
-                st.success(f"{len(df)} ligne(s) article extraite(s)")
+                adjusted = [r for r in rows if "Prix unitaire imprimé" in r and r["Prix unitaire"] != r["Prix unitaire imprimé"]]
+                if adjusted:
+                    st.info("Certains prix unitaires imprimés sont arrondis. Pour reproduire le montant de chaque ligne dans l'export, le prix exporté est calculé à partir du montant imprimé divisé par la quantité.")
+                    st.dataframe(pd.DataFrame(adjusted)[["Référence", "Prix unitaire imprimé", "Prix unitaire", "Montant imprimé"]], hide_index=True)
+                st.info(f"{len(rows)} ligne(s) extraite(s), {len(df)} ligne(s) dans l'export.")
                 st.subheader("Aperçu avant export")
                 st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -1804,7 +1978,7 @@ if nav == "▣ Achats / Fournisseurs":
                     use_container_width=True,
                 )
 
-                signature = (uploaded.name, doc_number, len(df), total_ht, total_extrait)
+                signature = (source_upload.name, doc_number, len(df), total_ht, total_extrait)
                 if st.session_state.saved_signature != signature:
                     entry = {
                         "Date": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -1814,9 +1988,9 @@ if nav == "▣ Achats / Fournisseurs":
                         "Total HT BL": fmt_money(total_ht),
                         "Total extrait": fmt_money(total_extrait),
                         "Écart": fmt_money(ecart),
-                        "Fichier": uploaded.name,
+                        "Fichier": source_upload.name,
                     }
-                    ok, cloud_msg = save_document_cloud(uploaded, supplier, doc_number, total_ht, total_extrait, ecart, export_rows)
+                    ok, cloud_msg = save_document_cloud(source_upload, supplier, doc_number, total_ht, total_extrait, ecart, export_rows)
                     if ok:
                         load_cloud_history(force=True)
                         track_usage("achat", {"supplier": supplier, "document_number": doc_number})
