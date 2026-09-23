@@ -16,6 +16,15 @@ import pandas as pd
 import streamlit as st
 from streamlit_cookies_controller import CookieController
 
+# OCR de secours pour les PDF scannés (ex. Salica Anconetti).
+try:
+    import fitz  # PyMuPDF
+    import pytesseract
+    from PIL import Image, ImageOps
+    OCR_AVAILABLE = True
+except Exception:
+    OCR_AVAILABLE = False
+
 st.set_page_config(page_title="PriceFlow", page_icon="📄", layout="wide")
 
 # Session navigateur PriceFlow : survit aux F5, expire après 1 heure.
@@ -152,6 +161,9 @@ def detect_document_number(text, supplier):
         if m: return re.sub(r"\s+", "", m.group(1))
 
     if supplier == "ANCONETTI":
+        # Bon d'enlèvement / débit Salica Anconetti scanné.
+        m = re.search(r"DEBIT\s+du\s+N[o°]?\s*\n?.{0,100}?\b(\d{6,8})\b", text, re.I | re.S)
+        if m: return m.group(1)
         m = re.search(r"O\s*F\s*F\s*R\s*E\s*D\s*E\s*P\s*R\s*I\s*X\s*\n\s*([0-9.]+)", text, re.I)
         if m: return m.group(1)
 
@@ -186,6 +198,18 @@ def detect_total_ht(text, supplier=None):
     # Aredis, PUM et CEDEO.
     normalized = text.replace("\u00a0", " ")
     money = r"([0-9][0-9 .]*[,.][0-9]{2,4})"
+
+    # Salica Anconetti scanné : le total est imprimé sous la forme "238,43 H.T".
+    if supplier == "ANCONETTI":
+        vals = []
+        # Bons d'enlèvement : "238,43 H.T" / "428,30 H.T".
+        vals += [fr_float(x) for x in re.findall(money + r"\s+H\s*\.?\s*T\s*\.?\b", normalized, re.I)]
+        # Pages intermédiaires : "Sous Total HT 295,57".
+        vals += [fr_float(x) for x in re.findall(r"Sous\s+Total\s+H\s*\.?\s*T\s*\.?[^0-9]*" + money, normalized, re.I)]
+        vals = [x for x in vals if x is not None]
+        if vals:
+            # Un PDF peut contenir plusieurs bons/pages scannés : contrôle sur leur somme.
+            return round(sum(vals), 2)
 
     # Totaux spécifiques aux nouveaux formats fournisseurs.
     specific_patterns = {
@@ -299,7 +323,7 @@ def detect_extra_charges(text):
             m = re.search(
                 r"(?:eco|éco)\s*contribution(?:\s+rep)?\s+"
                 r"([0-9]+(?:[,.][0-9]+)?)\s+"
-                r"(?:PCE|PCS|PIECE|PIÈCE|ML|M|U|UN|KG)\s+"
+                r"(?:PCE|BCE|PCS|PIECE|PIÈCE|ML|M|U|UN|KG)\s+"
                 r"([0-9]+(?:[,.][0-9]{1,4})?)\s+"
                 r"([0-9]+(?:[,.][0-9]{1,4})?)",
                 line, flags=re.I
@@ -404,11 +428,46 @@ def text_rows(text, supplier):
                 rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
 
     elif supplier == "ANCONETTI":
-        pat = re.compile(r"^\S+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:PCE|ML|M|U|KG)\s+(\d+(?:[.,]\d+)?)\s+\d+(?:[.,]\d+)$", re.I)
-        for line in lines:
+        # Salica Anconetti : fonctionne sur couche texte et sur OCR des bons scannés.
+        # Lecture par la fin de ligne : quantité + unité + PU + montant.
+        # Cela tolère les petits parasites OCR au milieu de la désignation.
+        pat = re.compile(
+            r"^(\d{5,})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"
+            r"(?:PCE|BCE|PCS|PIECE|PIÈCE|ML|M|U|UN|KG|BTE)\s+"
+            r"(\d+(?:[.,]\d{1,4})?)\s+(\d+(?:[.,]\d{1,4})?)$", re.I
+        )
+        scan_lines = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            # Certains libellés longs sont coupés par l'OCR avant les colonnes chiffrées.
+            if re.match(r"^\d{5,}\s+", line) and not pat.match(line):
+                merged = line
+                for j in range(i + 1, min(i + 3, len(lines))):
+                    if re.match(r"^\d{3,}\s+", lines[j]):
+                        break
+                    merged = clean(merged + " " + lines[j])
+                    if pat.match(merged):
+                        i = j
+                        break
+                scan_lines.append(merged)
+            else:
+                scan_lines.append(line)
+            i += 1
+
+        for line in scan_lines:
             m = pat.match(line)
-            if m and "eco contribution" not in m.group(1).lower():
-                rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+            if not m:
+                continue
+            ref, desc = m.group(1), clean(m.group(2))
+            if "eco contribution" in desc.lower() or "éco contribution" in desc.lower():
+                continue
+            rows.append({
+                "Référence": ref,
+                "Désignation": desc,
+                "Quantité": fr_float(m.group(3)),
+                "Prix unitaire": fr_float(m.group(4)),
+            })
 
     elif supplier == "PUM":
         pat = re.compile(r"^\d+\s*-\s*\d+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:Mètre|Metre|Pièce|Piece|PCE|ML|U)\s+(\d+(?:[.,]\d+)?)\s+(?:\d+(?:[.,]\d+)\s+)?\d+(?:[.,]\d+)\s+\d+(?:[.,]\d+)$", re.I)
@@ -718,8 +777,27 @@ def dedupe(rows):
             out.append(r)
     return out
 
+def ocr_pdf_text(pdf_bytes):
+    """OCR local de secours : utilisé seulement si le PDF n'a pas de couche texte exploitable."""
+    if not OCR_AVAILABLE:
+        return ""
+    pages = []
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        for page in doc:
+            # 2,5x donne un bon compromis précision / temps sur les BL A4 scannés.
+            pix = page.get_pixmap(matrix=fitz.Matrix(2.5, 2.5), alpha=False)
+            image = Image.open(io.BytesIO(pix.tobytes("png")))
+            image = ImageOps.grayscale(image)
+            txt = pytesseract.image_to_string(image, lang="fra", config="--psm 4")
+            pages.append(txt or "")
+        doc.close()
+    except Exception:
+        return ""
+    return "\n".join(pages)
+
 def best_pdf_text(pdf_bytes):
-    """Choisit la meilleure couche texte disponible sans OCR."""
+    """Choisit la meilleure couche texte ; déclenche l'OCR uniquement pour un scan."""
     texts = []
     try:
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -731,7 +809,13 @@ def best_pdf_text(pdf_bytes):
         texts.append("\n".join((page.extract_text() or "") for page in reader.pages).replace("\x00", ""))
     except Exception:
         pass
-    return "\n".join(t for t in texts if t)
+    text = max(texts, key=len, default="")
+    # Un scan renvoie généralement 0 ou seulement quelques caractères parasites.
+    if len(re.sub(r"\s+", "", text)) < 120:
+        ocr = ocr_pdf_text(pdf_bytes)
+        if len(ocr) > len(text):
+            return ocr
+    return text
 
 def extract_document(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -1438,7 +1522,7 @@ if nav == "▣ Achats / Fournisseurs":
                 export_rows = []
                 for r in rows:
                     export_rows.append({
-                        "Référence": "",
+                        "Référence": str(r.get("Référence", "") or ""),
                         "Désignation": str(r.get("Désignation", "") or ""),
                         "Quantité": r.get("Quantité"),
                         "Prix unitaire": r.get("Prix unitaire"),
