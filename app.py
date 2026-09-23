@@ -304,6 +304,19 @@ def detect_extra_charges(text):
         line = clean(raw)
         low = line.lower()
 
+        # FIRST et formats similaires : total récapitulatif "Contribution REP 0,02 €".
+        m_rep_total = re.search(r"^Contribution\s+REP\s*[:.]?\s*([0-9][0-9 .]*[,.][0-9]{2,4})\s*€?\s*$", line, re.I)
+        if m_rep_total:
+            amount = fr_float(m_rep_total.group(1))
+            if amount is not None:
+                # Le récapitulatif prévaut sur les micro-lignes REP unitaires.
+                charges = [c for c in charges if c.get("label") != "ÉCO-CONTRIBUTION"]
+                seen = {k for k in seen if k[0] != "ÉCO-CONTRIBUTION"}
+                key = ("ÉCO-CONTRIBUTION", round(amount, 4))
+                seen.add(key)
+                charges.append({"label": "ÉCO-CONTRIBUTION", "amount": amount})
+            continue
+
         # ALDES : l'éco-participation affichée est déjà incluse dans les prix / total articles.
         if re.search(r"^Dont\s+(?:eco|éco)-?participation\s+HT\s*:", line, re.I):
             continue
@@ -312,7 +325,7 @@ def detect_extra_charges(text):
         # On ignore volontairement les lignes article "... HT : 0,60 € / PCE"
         # et on prend seulement les totaux "Dont éco-contribution DEEE : 1,20 €".
         m_clim = re.search(
-            r"^Dont\s+(?:eco|éco)-?contribution\s+(?:DEEE|PMCB)\s*:\s*"
+            r"^(?:(?:Total\s+)?|Dont\s+)(?:eco|éco)-?contribution\s+(?:DEEE|PMCB)(?:\s+HT)?\s*:?\s*"
             r"([0-9][0-9 .]*[,.][0-9]{2,4})\s*€?\s*$",
             line, re.I
         )
@@ -325,7 +338,7 @@ def detect_extra_charges(text):
                     charges.append({"label": "ÉCO-CONTRIBUTION", "amount": amount})
             continue
 
-        if re.search(r"\b(?:eco|éco)\s*contribution\b", low):
+        if re.search(r"\b(?:eco|éco)[-\s]*contribution\b", low):
             # Ligne article, ex. ANCONETTI :
             # 454 ECO CONTRIBUTION REP 1,000 PCE 0,04 0,04
             m = re.search(
@@ -348,7 +361,7 @@ def detect_extra_charges(text):
 
             # Ligne récapitulative, ex. PUM : Eco contribution : 2,45 EUR
             m = re.search(
-                r"(?:eco|éco)\s*contribution\s*[:.]?\s*"
+                r"(?:Total\s+)?(?:eco|éco)[-\s]*contribution(?:\s+PMCB|\s+DEEE)?\s*[:.]?\s*"
                 r"([0-9][0-9 .]*[,.][0-9]{2,4})\s*(?:eur|€)?",
                 line, flags=re.I
             )
@@ -480,7 +493,7 @@ def text_rows(text, supplier):
 
     elif supplier == "CLIM+":
         # Saint-Gobain CLIM+ : code article, nombre, désignation, quantité, unité, PU, montant.
-        pat = re.compile(r"^(\d{5,})\s+\d+(?:[.,]\d+)?\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:PI|PCE|PC|U|UN|ML|M|KG)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)\s+[A-Z]$", re.I)
+        pat = re.compile(r"^(\d{5,})\s+\d+(?:[.,]\d+)?\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:PI|PCE|PC|U|UN|ML|M|KG|RL|BTE|ENS|LOT)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)\s+[A-Z]$", re.I)
         for line in lines:
             m=pat.match(line)
             if m:
@@ -514,13 +527,18 @@ def text_rows(text, supplier):
 
     elif supplier == "VIM":
         # Factures VIM : référence + libellé + éventuelle colonne DEEE + quantité + PU + montant.
-        pat=re.compile(r"^([0-9A-Z]{5,})\s+(.+?)\s+(?:(\d+(?:[.,]\d+)?)\s+)?(\d+(?:[.,]\d+)?)\s+([0-9][0-9 .]*[,.]\d{2,4})\s+([0-9][0-9 .]*[,.]\d{2})$",re.I)
+        # Le champ DEEE est parfois présent entre la désignation et la quantité (ex. 4,91).
+        # On ancre surtout les 3 dernières colonnes : quantité, PU, montant.
+        pat=re.compile(r"^([0-9A-Z]{5,})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+([0-9][0-9 .]*[,.]\d{2,4})\s+([0-9][0-9 .]*[,.]\d{2})$",re.I)
         for line in lines:
             m=pat.match(line)
-            if not m: continue
-            q=fr_float(m.group(4)); pu=fr_float(m.group(5)); amount=fr_float(m.group(6))
-            if q and pu is not None and amount is not None and abs(q*pu-amount)<=max(.12,abs(amount)*.003):
-                rows.append({"Référence":m.group(1),"Désignation":clean(m.group(2)),"Quantité":q,"Prix unitaire":pu})
+            if not m or not re.search(r"\d", m.group(1)): continue
+            prefix=clean(m.group(2)); q=fr_float(m.group(3)); pu=fr_float(m.group(4)); amount=fr_float(m.group(5))
+            if not (q and pu is not None and amount is not None and abs(q*pu-amount)<=max(.12,abs(amount)*.003)):
+                continue
+            # Retire une éventuelle valeur DEEE isolée en fin de désignation.
+            prefix=re.sub(r"\s+\d+(?:[.,]\d+)?$", "", prefix).strip()
+            rows.append({"Référence":m.group(1),"Désignation":prefix,"Quantité":q,"Prix unitaire":pu})
 
     elif supplier == "PUM":
         pat = re.compile(r"^\d+\s*-\s*\d+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:Mètre|Metre|Pièce|Piece|PCE|ML|U)\s+(\d+(?:[.,]\d+)?)\s+(?:\d+(?:[.,]\d+)\s+)?\d+(?:[.,]\d+)\s+\d+(?:[.,]\d+)$", re.I)
@@ -592,38 +610,36 @@ def text_rows(text, supplier):
                 rows.append({"Désignation": desc, "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(1))})
 
     elif supplier == "OUEST ISOL":
-        # pdfplumber lit OUEST ISOL dans cet ordre :
-        # "Normalement disponible 1,00"
-        # "1 C020205127000 ALUFLEX ... CTN 13,71 € 13.71 €"
-        # "Agence"
-        # La quantité est donc souvent sur la ligne juste AVANT l'article.
+        # OUEST ISOL / OIV : selon le moteur PDF, la quantité peut être sur
+        # la ligne précédente et l'article + unité + PU + montant sur une seule ligne.
+        status_qty = re.compile(r"(?:Normalement\s+disponible|Disponibilit[ée]\s+[àa]\s+confirmer|Disponible|En\s+stock)\s+(\d+(?:[.,]\d+)?)\s*$", re.I)
+        article_price = re.compile(
+            r"^\d+\s+([A-Z0-9][A-Z0-9._/-]{3,})\s+(.+?)\s+"
+            r"(CTN|PCE|PCS|PC|U|UN|ML|M|KG|BTE|RL|ENS|LOT)\s+"
+            r"(\d+(?:[.,]\d+)?)\s*€?\s+(\d+(?:[.,]\d+)?)\s*€?\s*$", re.I)
         last_qty = None
-
         for i, line in enumerate(lines):
-            mq = re.search(
-                r"(?:Normalement\s+disponible|Disponible|En\s+stock)\s+"
-                r"(\d+(?:[.,]\d+)?)\s*$",
-                line, re.I
-            )
+            mq = status_qty.search(line)
             if mq:
                 last_qty = fr_float(mq.group(1))
                 continue
-
-            m = re.match(
-                r"^\d+\s+([A-Z0-9_-]{6,})\s+(.+?)\s+"
-                r"(CTN|PCE|PCS|PC|U|UN|ML|M|KG)\s+"
-                r"(\d+(?:[.,]\d+)?)\s*€?\s+"
-                r"(\d+(?:[.,]\d+)?)\s*€?\s*$",
-                line, re.I
-            )
-            if m:
-                qty = last_qty if last_qty is not None else 1.0
-                rows.append({
-                    "Désignation": clean(m.group(2)),
-                    "Quantité": qty,
-                    "Prix unitaire": fr_float(m.group(4))
-                })
-                last_qty = None
+            m = article_price.match(line)
+            if not m or last_qty is None:
+                continue
+            ref = clean(m.group(1)); short_desc = clean(m.group(2))
+            pu = fr_float(m.group(4)); amount = fr_float(m.group(5)); qty = last_qty
+            # La désignation commerciale détaillée est généralement 1-3 lignes après.
+            desc = short_desc
+            for j in range(i + 1, min(i + 5, len(lines))):
+                cand = clean(lines[j]); low = cand.lower()
+                if not cand or low == "agence" or "eco-contribution" in low or "éco-contribution" in low:
+                    continue
+                if article_price.match(cand) or status_qty.search(cand):
+                    break
+                desc = cand; break
+            if qty is not None and pu is not None and amount is not None and abs(qty * pu - amount) <= max(0.12, abs(amount) * 0.004):
+                rows.append({"Référence": ref, "Désignation": desc, "Quantité": qty, "Prix unitaire": pu})
+            last_qty = None
 
     elif supplier == "PROLIANS":
         # Désignation sur la ligne précédente, puis réf / quantité / unité / PU.
@@ -822,20 +838,49 @@ def text_rows(text, supplier):
     return rows
 
 def generic_text_rows(text):
-    """Secours multi-fournisseurs : extrait les lignes tabulaires sans dépendre du nom du fournisseur."""
+    """Moteur universel Achats : lignes article détectées par structure et contrôle qté × PU = montant."""
     rows=[]
-    lines=[clean(x) for x in text.splitlines() if clean(x)]
-    units=r"(?:PCE|PCS|PC|PI|PIECE|PIÈCE|U|UN|ML|M|MÈTRE|METRE|KG|ENS|LOT|BTE|BCE)"
-    # Forme la plus courante : REF + désignation + quantité + unité + PU + montant.
-    pat=re.compile(r"^([A-Z0-9][A-Z0-9._/ -]{2,20})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"+units+r"\s+(?:\d+(?:[.,]\d+)?(?:\s*%|\+\d+%)?\s+)?([0-9][0-9 .]*[,.]\d{2,4})\s+([0-9][0-9 .]*[,.]\d{2})$",re.I)
+    raw_lines=[clean(x) for x in text.splitlines() if clean(x)]
+    # Certains moteurs PDF coupent la dernière colonne (montant/TVA) sur la ligne suivante.
+    lines=[]
+    i=0
+    while i < len(raw_lines):
+        cur=raw_lines[i]
+        if i+1 < len(raw_lines) and re.match(r"^[A-Z0-9][A-Z0-9._/-]{2,24}\s+", cur):
+            nxt=raw_lines[i+1]
+            if re.match(r"^[0-9][0-9 .]*[,.][0-9]{2,4}(?:\s+[A-Z])?$", nxt):
+                cur=clean(cur+" "+nxt); i+=1
+        lines.append(cur); i+=1
+    unit=r"(?:PCE|PCS|PC|PI|PIECE|PIÈCE|U|UN|ML|M|MÈTRE|METRE|KG|ENS|LOT|BTE|BCE|RL|CTN|SACHET|PAQ|COL|L)"
+    num=r"[0-9][0-9 .]*[,.][0-9]{1,4}"
+
+    def add(ref, desc, q, pu, amt):
+        ref,desc=clean(ref),clean(desc); q,pu,amt=fr_float(q),fr_float(pu),fr_float(amt)
+        if not ref or not re.search(r"\d", ref) or not desc or q is None or pu is None or amt is None or q<=0 or pu<0: return
+        low=desc.lower()
+        if any(x in low for x in ["total ht","total h.t","client acheteur","commande n°","votre référence","reste à livrer","eco contribution","éco contribution","contribution rep"]): return
+        if abs(q*pu-amt)>max(.12,abs(amt)*.004): return
+        rows.append({"Référence":ref,"Désignation":desc,"Quantité":q,"Prix unitaire":pu})
+
+    patterns=[
+      # CLIM+ : REF + nombre + désignation + qté + unité + PU + montant + TVA
+      re.compile(rf"^(?P<ref>\d{{5,}})\s+\d+(?:[.,]\d+)?\s+(?P<desc>.+?)\s+(?P<q>\d+(?:[.,]\d+)?)\s+{unit}\s+(?P<pu>{num})\s+(?P<amt>{num})\s+[A-Z]$",re.I),
+      # FIRST : REF + conditionnement + désignation + qté + unité + PU + montant
+      re.compile(rf"^(?P<ref>[A-Z0-9][A-Z0-9._/-]{{2,24}})\s+\d+(?:[.,]\d+)?(?:\s+\w+)?\s+(?P<desc>.+?)\s+(?P<q>\d+(?:[.,]\d+)?)\s+{unit}\s+(?P<pu>{num})\s+(?P<amt>{num})$",re.I),
+      # Standard
+      re.compile(rf"^(?P<ref>[A-Z0-9][A-Z0-9._/-]{{2,24}})\s+(?P<desc>.+?)\s+(?P<q>\d+(?:[.,]\d+)?)\s+{unit}\s+(?P<pu>{num})\s+(?P<amt>{num})(?:\s+[A-Z])?$",re.I),
+      # VIM : pas toujours de colonne unité ; éventuel DEEE reste dans la désignation et sera retiré
+      re.compile(rf"^(?P<ref>[0-9A-Z]{{5,}})\s+(?P<desc>.+?)\s+(?P<q>\d+(?:[.,]\d+)?)\s+(?P<pu>{num})\s+(?P<amt>{num})$",re.I),
+    ]
     for line in lines:
-        if any(k in line.lower() for k in ["total ht","total h.t","sous total","eco contribution","éco contribution","tva "]): continue
-        m=pat.match(line)
-        if not m: continue
-        q,pu,amt=fr_float(m.group(3)),fr_float(m.group(4)),fr_float(m.group(5))
-        if q is None or pu is None or amt is None or q<=0: continue
-        if abs(q*pu-amt)>max(.12,abs(amt)*.004): continue
-        rows.append({"Référence":clean(m.group(1)),"Désignation":clean(m.group(2)),"Quantité":q,"Prix unitaire":pu})
+        low=line.lower()
+        if any(k in low for k in ["total ht","total h.t","sous total","contribution rep","eco-contribution","éco-contribution","dont éco","dont eco"]): continue
+        for pat in patterns:
+            m=pat.match(line)
+            if not m: continue
+            desc=re.sub(r"\s+\d+(?:[.,]\d+)?$","",clean(m.group('desc'))).strip()
+            add(m.group('ref'),desc,m.group('q'),m.group('pu'),m.group('amt'))
+            break
     return dedupe(rows) if rows else []
 
 def dedupe(rows):
@@ -895,16 +940,28 @@ def extract_document(pdf_bytes):
         total_ht = detect_total_ht(text, supplier)
         extra_charges = detect_extra_charges(text)
 
-        rows = table_rows(pdf)
-        # Certains fournisseurs ont des PDF sans tableau exploitable.
-        if not rows or supplier in ["FIRST ROBINETTERIE", "ANCONETTI", "PUM", "MPS", "ALDES", "REXEL", "OUEST ISOL", "PROLIANS", "LORFLEX", "FRITEC", "RICHARDSON", "FRANS BONHOMME", "H-TUBE / POINT PLASTIQUE", "RODACLIM", "PACK SERVICE"]:
-            specific = text_rows(text, supplier)
-            if specific:
-                rows = specific
+        # On essaie systématiquement plusieurs moteurs : tableau PDF, parseur fournisseur
+        # et parseur générique. Le meilleur résultat est retenu au lieu de dépendre
+        # d'un seul gabarit de BL/devis.
+        table_candidate = table_rows(pdf)
+        specific_candidate = text_rows(text, supplier) if supplier != "Fournisseur non identifié" else []
+        generic_candidate = generic_text_rows(text)
+        candidates = [c for c in [specific_candidate, table_candidate, generic_candidate] if c]
 
-        # Dernier filet de sécurité : nouveau fournisseur / nouveau gabarit.
-        if not rows:
-            rows = generic_text_rows(text)
+        def candidate_score(candidate):
+            # Priorité à un contrôle financier cohérent ; à égalité, au plus grand
+            # nombre de vraies lignes articles reconnues.
+            article_total = round(sum(float(r["Quantité"]) * float(r["Prix unitaire"]) for r in candidate), 2)
+            if total_ht is None:
+                return (0, len(candidate), article_total)
+            extras = round(sum(float(x.get("amount", 0) or 0) for x in extra_charges), 2)
+            gaps = [abs(float(total_ht) - article_total), abs(float(total_ht) - article_total - extras)]
+            gap = min(gaps)
+            # Une extraction qui dépasse fortement le total est presque toujours parasite.
+            penalty = 10000 if article_total > float(total_ht) * 1.03 + 1 else 0
+            return (-(gap + penalty), len(candidate), article_total)
+
+        rows = max(candidates, key=candidate_score) if candidates else []
 
         # Ne pas supprimer les lignes identiques chez AREDIS :
         # un même article peut être réellement livré/facturé deux fois sur le BL
