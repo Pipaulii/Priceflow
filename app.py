@@ -136,6 +136,8 @@ def detect_supplier(text):
     if "point plastique" in low or ("devis n°" in low and "jouanneau" in low): return "H-TUBE / POINT PLASTIQUE"
     if "rodaclim" in low or "klima13" in low: return "RODACLIM"
     if "pack service gemenos" in low: return "PACK SERVICE"
+    if "yack sas" in low or "commande@yack.fr" in low: return "YACK"
+    if "www.vim.fr" in low or "experts en ventilation" in low: return "VIM"
     return "Fournisseur non identifié"
 
 def detect_document_number(text, supplier):
@@ -184,6 +186,9 @@ def detect_document_number(text, supplier):
         "H-TUBE / POINT PLASTIQUE": [r"DEVIS\s+n[°º]\s*([0-9-]+)"],
         "RODACLIM": [r"\b(AR[0-9]{6,})\b"],
         "PACK SERVICE": [r"\b\d{2}/\d{2}/\d{4}\s+([0-9]{5,})\s+CGE"],
+        "YACK": [r"Numéro\s+du\s+devis\s*:\s*([A-Z0-9-]+)"],
+        "VIM": [r"\b(RI[/\-]?[0-9]{8})\b", r"B\.LIVRAISON\s+([0-9]+)"],
+        "CLIM+": [r"Facture\s+([A-Z0-9]+)\s+du"],
     }
     for pat in supplier_patterns.get(supplier, []):
         m = re.search(pat, text, re.I)
@@ -224,6 +229,9 @@ def detect_total_ht(text, supplier=None):
         "H-TUBE / POINT PLASTIQUE": [r"TOTAL\s+H\.T\s+" + money],
         "RODACLIM": [r"Total\s+HT\s+" + money],
         "PACK SERVICE": [r"Total\s+Devis\s+HT\s+" + money, r"NET\s+H\.T\..*?\n\s*" + money],
+        "CLIM+": [r"TOTAL\s+HT\s+" + money],
+        "YACK": [r"Total\s+HT\s+" + money, r"TOTAL\s+NET\s+HT\s+" + money],
+        "VIM": [r"TOTAL\s+HT\s+" + money, r"NET\s+H\.?T\.?\s+" + money],
     }
     for pat in specific_patterns.get(supplier, []):
         m = re.search(pat, normalized, re.I)
@@ -468,6 +476,51 @@ def text_rows(text, supplier):
                 "Quantité": fr_float(m.group(3)),
                 "Prix unitaire": fr_float(m.group(4)),
             })
+
+
+    elif supplier == "CLIM+":
+        # Saint-Gobain CLIM+ : code article, nombre, désignation, quantité, unité, PU, montant.
+        pat = re.compile(r"^(\d{5,})\s+\d+(?:[.,]\d+)?\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:PI|PCE|PC|U|UN|ML|M|KG)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)\s+[A-Z]$", re.I)
+        for line in lines:
+            m=pat.match(line)
+            if m:
+                rows.append({"Référence":m.group(1),"Désignation":clean(m.group(2)),"Quantité":fr_float(m.group(3)),"Prix unitaire":fr_float(m.group(4))})
+
+    elif supplier == "YACK":
+        # Les descriptions YACK sont multilignes ; la référence démarre le bloc et la ligne prix le termine.
+        refs=re.compile(r"^[A-Z0-9][A-Z0-9._/-]{3,}$")
+        i=0
+        while i < len(lines):
+            if refs.match(lines[i]) and not any(x in lines[i].upper() for x in ["EAN13","TOTAL","TVA"]):
+                ref=lines[i]; desc=[]; j=i+1
+                while j < min(i+12,len(lines)):
+                    m=re.match(r"^(\d+(?:[.,]\d+)?)\s+([0-9][0-9 .]*[,.]\d{2})\s*€?\s+([0-9][0-9 .]*[,.]\d{2})\s*€?$", lines[j])
+                    if m:
+                        q=fr_float(m.group(1)); amount=fr_float(m.group(2)); pu=fr_float(m.group(3))
+                        # pdf text can expose amount then PU; select the value coherent with q*PU=amount.
+                        a,b=fr_float(m.group(2)),fr_float(m.group(3))
+                        if q and a is not None and b is not None:
+                            if abs(q*a-b) <= max(.08,abs(b)*.002): pu=a
+                            elif abs(q*b-a) <= max(.08,abs(a)*.002): pu=b
+                            else: pu=b
+                            d=clean(" ".join(x for x in desc if not x.lower().startswith("descriptif")))
+                            if d: rows.append({"Référence":ref,"Désignation":d,"Quantité":q,"Prix unitaire":pu})
+                        i=j; break
+                    if refs.match(lines[j]) and j>i+1: break
+                    if not lines[j].upper().startswith("ECOTAXE HT"):
+                        desc.append(lines[j])
+                    j+=1
+            i+=1
+
+    elif supplier == "VIM":
+        # Factures VIM : référence + libellé + éventuelle colonne DEEE + quantité + PU + montant.
+        pat=re.compile(r"^([0-9A-Z]{5,})\s+(.+?)\s+(?:(\d+(?:[.,]\d+)?)\s+)?(\d+(?:[.,]\d+)?)\s+([0-9][0-9 .]*[,.]\d{2,4})\s+([0-9][0-9 .]*[,.]\d{2})$",re.I)
+        for line in lines:
+            m=pat.match(line)
+            if not m: continue
+            q=fr_float(m.group(4)); pu=fr_float(m.group(5)); amount=fr_float(m.group(6))
+            if q and pu is not None and amount is not None and abs(q*pu-amount)<=max(.12,abs(amount)*.003):
+                rows.append({"Référence":m.group(1),"Désignation":clean(m.group(2)),"Quantité":q,"Prix unitaire":pu})
 
     elif supplier == "PUM":
         pat = re.compile(r"^\d+\s*-\s*\d+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:Mètre|Metre|Pièce|Piece|PCE|ML|U)\s+(\d+(?:[.,]\d+)?)\s+(?:\d+(?:[.,]\d+)\s+)?\d+(?:[.,]\d+)\s+\d+(?:[.,]\d+)$", re.I)
@@ -768,6 +821,23 @@ def text_rows(text, supplier):
 
     return rows
 
+def generic_text_rows(text):
+    """Secours multi-fournisseurs : extrait les lignes tabulaires sans dépendre du nom du fournisseur."""
+    rows=[]
+    lines=[clean(x) for x in text.splitlines() if clean(x)]
+    units=r"(?:PCE|PCS|PC|PI|PIECE|PIÈCE|U|UN|ML|M|MÈTRE|METRE|KG|ENS|LOT|BTE|BCE)"
+    # Forme la plus courante : REF + désignation + quantité + unité + PU + montant.
+    pat=re.compile(r"^([A-Z0-9][A-Z0-9._/ -]{2,20})\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+"+units+r"\s+(?:\d+(?:[.,]\d+)?(?:\s*%|\+\d+%)?\s+)?([0-9][0-9 .]*[,.]\d{2,4})\s+([0-9][0-9 .]*[,.]\d{2})$",re.I)
+    for line in lines:
+        if any(k in line.lower() for k in ["total ht","total h.t","sous total","eco contribution","éco contribution","tva "]): continue
+        m=pat.match(line)
+        if not m: continue
+        q,pu,amt=fr_float(m.group(3)),fr_float(m.group(4)),fr_float(m.group(5))
+        if q is None or pu is None or amt is None or q<=0: continue
+        if abs(q*pu-amt)>max(.12,abs(amt)*.004): continue
+        rows.append({"Référence":clean(m.group(1)),"Désignation":clean(m.group(2)),"Quantité":q,"Prix unitaire":pu})
+    return dedupe(rows) if rows else []
+
 def dedupe(rows):
     out, seen = [], set()
     for r in rows:
@@ -831,6 +901,10 @@ def extract_document(pdf_bytes):
             specific = text_rows(text, supplier)
             if specific:
                 rows = specific
+
+        # Dernier filet de sécurité : nouveau fournisseur / nouveau gabarit.
+        if not rows:
+            rows = generic_text_rows(text)
 
         # Ne pas supprimer les lignes identiques chez AREDIS :
         # un même article peut être réellement livré/facturé deux fois sur le BL
