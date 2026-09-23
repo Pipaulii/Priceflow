@@ -927,25 +927,33 @@ def ocr_pdf_text(pdf_bytes):
     return "\n".join(pages)
 
 def best_pdf_text(pdf_bytes):
-    """Choisit la meilleure couche texte ; déclenche l'OCR uniquement pour un scan."""
-    texts = []
+    """Lecture PDF principale. Préfère pdfplumber pour conserver les lignes/colonnes des BL.
+    PyPDF2 n'est utilisé qu'en secours ; OCR uniquement si aucune couche texte exploitable.
+    """
+    plumber_text = ""
+    pypdf_text = ""
     try:
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            texts.append("\n".join(page.extract_text(x_tolerance=2, y_tolerance=3) or "" for page in pdf.pages))
+            plumber_text = "\n".join(page.extract_text(x_tolerance=2, y_tolerance=3) or "" for page in pdf.pages)
     except Exception:
         pass
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
-        texts.append("\n".join((page.extract_text() or "") for page in reader.pages).replace("\x00", ""))
+        pypdf_text = "\n".join((page.extract_text() or "") for page in reader.pages).replace("\x00", "")
     except Exception:
         pass
-    text = max(texts, key=len, default="")
-    # Un scan renvoie généralement 0 ou seulement quelques caractères parasites.
-    if len(re.sub(r"\s+", "", text)) < 120:
-        ocr = ocr_pdf_text(pdf_bytes)
-        if len(ocr) > len(text):
-            return ocr
-    return text
+
+    # Pour les BL/devis, la conservation des lignes est plus importante que la longueur brute.
+    # pdfplumber restitue notamment correctement les tableaux FIRST, alors que PyPDF2 peut
+    # fusionner les cellules et transformer une ligne article en bloc de texte.
+    if len(re.sub(r"\s+", "", plumber_text)) >= 120:
+        return plumber_text
+    if len(re.sub(r"\s+", "", pypdf_text)) >= 120:
+        return pypdf_text
+
+    text = plumber_text if len(plumber_text) >= len(pypdf_text) else pypdf_text
+    ocr = ocr_pdf_text(pdf_bytes)
+    return ocr if len(ocr) > len(text) else text
 
 def extract_document(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
