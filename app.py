@@ -159,7 +159,10 @@ def detect_document_number(text, supplier):
         if m: return m.group(1)
 
     if supplier == "FIRST ROBINETTERIE":
-        m = re.search(r"\d{2}/\d{2}/\d{4}\s+([0-9][0-9 ]{3,})\s+\d", text)
+        # En-tête : Date | N° BL | N° Client, ex. 04/07/2025 291 466 10 280.
+        m = re.search(r"\b\d{2}/\d{2}/\d{4}\s+(\d{3}\s*\d{3})\s+\d{2}\s*\d{3}\b", text)
+        if m: return re.sub(r"\s+", "", m.group(1))
+        m = re.search(r"N[°º]?\s*BL.{0,80}?\n?\s*\d{2}/\d{2}/\d{4}\s+(\d{3}\s*\d{3})", text, re.I | re.S)
         if m: return re.sub(r"\s+", "", m.group(1))
 
     if supplier == "ANCONETTI":
@@ -442,11 +445,23 @@ def text_rows(text, supplier):
     lines = [clean(x) for x in text.splitlines() if clean(x)]
 
     if supplier == "FIRST ROBINETTERIE":
-        pat = re.compile(r"^\S+\s+\d+[,.]\d+\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:ML|PCE|U|M|KG|BAG)\s+(\d+(?:[.,]\d{1,4})?)\s+\d+(?:[.,]\d+)$", re.I)
+        # FIRST : référence + conditionnement + désignation + quantité + unité + PU + montant.
+        # Le conditionnement peut être "2 unité", "3 SACHET" ou seulement un nombre.
+        pat = re.compile(
+            r"^([A-Z0-9][A-Z0-9._/-]{2,24})\s+\d+(?:[.,]\d+)?(?:\s+(?:unité|unite))?\s+"
+            r"(.+?)\s+(\d+(?:[.,]\d+)?)\s+(?:ML|PCE|PCS|PC|U|UN|M|KG|BAG)\s+"
+            r"(\d+(?:[.,]\d{1,4})?)\s+(\d+(?:[.,]\d{1,4})?)$", re.I
+        )
         for line in lines:
+            if line.lower().startswith("reste à livrer"):
+                break
             m = pat.match(line)
-            if m:
-                rows.append({"Désignation": m.group(1), "Quantité": fr_float(m.group(2)), "Prix unitaire": fr_float(m.group(3))})
+            if not m:
+                continue
+            q, pu, amount = fr_float(m.group(3)), fr_float(m.group(4)), fr_float(m.group(5))
+            if q is None or pu is None or amount is None or abs(q * pu - amount) > max(0.08, abs(amount) * 0.002):
+                continue
+            rows.append({"Référence": m.group(1), "Désignation": clean(m.group(2)), "Quantité": q, "Prix unitaire": pu})
 
     elif supplier == "ANCONETTI":
         # Salica Anconetti : fonctionne sur couche texte et sur OCR des bons scannés.
