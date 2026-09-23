@@ -46,3 +46,13 @@ Les lignes comptées peuvent inclure du transport ou des contributions déjà pr
 Compilation Python complète ; comparaison des nombres de lignes et des totaux attendus ; exécution du bloc de calcul/export réel de l’interface pour chaque résultat ; cas de régression sur les REP répétées, les contributions déjà incluses, les arrondis par ligne, les lignes physiques identiques, les sous-totaux et les titres des articles YACK.
 
 Les PDF ont été rendus pour inspection visuelle. Les références et désignations issues de scans peuvent encore contenir des erreurs de lecture ou des espaces manquants : la concordance financière ne valide pas chaque caractère. Les tests n’ont pas lancé l’application déployée, son authentification ni les écritures Supabase. Aucun correctif Locations n’est inclus.
+
+
+## Mise à jour du 23 septembre — blanc et bleu et erreur cv2
+
+- Régression sur le fichier 7477279.PDF fourni : une ligne article, total exporté 33,09 €, écart nul, sans OCR (appel OCR volontairement interdit durant le test).
+- Navigation Achats / Locations / Comparatif testée sans exception avec Streamlit 1.64.0.
+- Contrôle visuel navigateur du menu, des cartes Locations et du comparatif réel PUM/H-TUBE/Frans Bonhomme, puis du comparatif à une largeur mobile de 390 pixels.
+- Moteur d’extraction identique à la version corrigée précédente, hormis le traitement des annexes Anconetti et le message de dépendances OCR.
+- Connexion et historique cloud conservés dans le fichier livré ; aucune connexion au service distant ni déploiement effectués durant ces tests.
+- Nouveau contrôle du scan Anconetti contenant deux BL : 4121520 à 36,87 € et 4122188 à 428,30 €, tous deux avec écart nul.

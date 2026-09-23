@@ -34,54 +34,63 @@ cookie_controller = CookieController(key="priceflow_auth_cookie")
 PF_AUTH_COOKIE = "priceflow_access_token"
 PF_AUTH_MAX_AGE = 60 * 60
 
-st.markdown("""
-<style>
-:root{color-scheme:light!important;--pf-bg:#f7f9fc;--pf-panel:#fff;--pf-border:#dbe4ee;--pf-blue:#0b8cff;--pf-text:#071b33;--pf-muted:#62748a;--pf-green:#12a56a}
-html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],.stApp{background:var(--pf-bg)!important;color:var(--pf-text)!important;font-family:Inter,"Segoe UI",Arial,sans-serif!important}
-[data-testid="stHeader"]{background:transparent!important;height:2.2rem}.block-container{max-width:1540px;padding-top:.9rem;padding-bottom:2rem}
-.hero{height:108px;box-sizing:border-box;padding:17px 26px;border:1px solid #e6ebf1;border-radius:17px;background:#fff;box-shadow:0 10px 32px rgba(31,55,84,.10);margin:0 0 14px}
-.hero h1{margin:0;font-size:2.15rem;line-height:1.05;font-weight:850;letter-spacing:-.05em}.hero .price{color:#071b33}.hero .flow{color:#0b8cff}.hero p{margin:.45rem 0 0;color:#62748a;font-size:.94rem}.copyright{font-size:.78rem;color:#8190a3;margin-top:.8rem}
-/* Navigation PriceFlow : un seul header blanc, sans les onglets Streamlit */
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]){position:relative!important;z-index:30!important;margin-top:-97px!important;margin-left:315px!important;width:calc(100% - 340px)!important;height:78px!important;margin-bottom:19px!important;display:flex!important;align-items:center!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) > label{display:none!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) [role="radiogroup"]{display:flex!important;align-items:center!important;width:100%!important;gap:7px!important;flex-wrap:nowrap!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label{position:relative!important;padding:15px 14px 17px!important;border-radius:9px!important;cursor:pointer!important;white-space:nowrap!important;margin:0!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child{margin-left:auto!important;padding-left:58px!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child:before{content:"MR";position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:#0b8cff;color:#fff;font-weight:800;font-size:.84rem}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:hover{background:#f3f9ff!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:has(input:checked){background:#eef7ff!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:has(input:checked):after{content:"";position:absolute;left:12px;right:12px;bottom:5px;height:3px;background:#0b8cff;border-radius:999px}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:has(input:checked) p{color:#0b8cff!important;font-weight:750!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) [data-testid="stMarkdownContainer"] p{font-size:.94rem!important;color:#17283b!important}
-[data-testid="stRadio"]:has(input[name="pf_main_nav"]) input{display:none!important}
-[data-baseweb="input"]>div,[data-baseweb="base-input"],.stTextInput input,.stNumberInput input,.stTextArea textarea{background:#fff!important;color:var(--pf-text)!important;border-color:#d6e0eb!important}
-.stButton>button,.stFormSubmitButton>button,.stDownloadButton>button{min-height:46px;border-radius:9px!important;border:1px solid #acd3fb!important;background:#fff!important;color:#0b66bd!important;font-weight:650!important}.stButton>button:hover,.stFormSubmitButton>button:hover,.stDownloadButton>button:hover{border-color:var(--pf-blue)!important;color:var(--pf-blue)!important;background:#f3f9ff!important}button[kind="primary"],.stFormSubmitButton button[kind="primary"],.stDownloadButton button[kind="primary"]{background:#0b8cff!important;color:#fff!important;border-color:#0b8cff!important;box-shadow:0 6px 15px rgba(11,140,255,.20)!important}
-[data-testid="stFileUploaderDropzone"]{min-height:78px!important;background:#f7fbff!important;border:1px solid #b8d9f8!important;border-radius:12px!important;padding:12px 16px!important}[data-testid="stFileUploaderDropzone"] button{background:#0b8cff!important;color:#fff!important;border-color:#0b8cff!important}
-div[data-testid="stMetric"]{background:#fff;border:1px solid #d6e0ea;padding:16px 20px;border-radius:13px;box-shadow:0 3px 12px rgba(31,55,84,.035)}div[data-testid="stMetricLabel"] p{font-size:.92rem!important;color:#25384d!important}div[data-testid="stMetricValue"]{color:#071b33!important;font-size:1.72rem!important}
-[data-testid="stAlert"]{border-radius:10px!important}.auth-card{max-width:620px;margin:1.2rem auto 0;padding:1.35rem;border:1px solid var(--pf-border);border-radius:16px;background:#fff}
-/* Grilles PriceFlow : thème clair */
-[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dbe5ef!important;border-radius:11px!important;overflow:hidden!important;background:#fff!important;color:#071b33!important}
-[data-testid="stDataFrame"]>div,[data-testid="stTable"]>div{background:#fff!important;color:#071b33!important}
-[data-testid="stDataFrame"] [role="grid"],[data-testid="stDataFrame"] [role="gridcell"],[data-testid="stDataFrame"] [role="columnheader"]{background:#fff!important;color:#071b33!important;border-color:#e2e9f1!important}
-[data-testid="stDataFrame"] [role="columnheader"]{background:#f2f6fa!important;color:#23374d!important;font-weight:700!important}
-[data-testid="stDataFrame"] canvas{filter:none!important}
-[data-testid="stTable"] table{background:#fff!important;color:#071b33!important}
-[data-testid="stTable"] th{background:#f2f6fa!important;color:#23374d!important}
-[data-testid="stTable"] td{background:#fff!important;color:#071b33!important;border-color:#e2e9f1!important}
-[data-testid="stExpander"]{background:#fff!important;border:1px solid #dbe5ef!important;border-radius:10px!important}
-div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]){display:none!important}
-h1,h2,h3,h4,h5,h6,p,label,[data-testid="stMarkdownContainer"]{color:var(--pf-text)}[data-testid="stCaptionContainer"],.stCaption{color:var(--pf-muted)!important}
-h3{font-size:1.75rem!important;font-weight:800!important;letter-spacing:-.02em!important;margin-top:.65rem!important}
-.pf-title{display:flex;align-items:center;gap:14px;margin:16px 0 0}.pf-title .ico{font-size:2.45rem;color:#0b8cff}.pf-title h2{margin:0;font-size:2rem;font-weight:820;letter-spacing:-.025em}.pf-sub{color:#42566d;margin:1px 0 22px 58px;font-size:1rem}
-.pf-supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:12px 0 18px}.pf-supplier-card{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:16px;box-shadow:0 4px 14px rgba(31,55,84,.04)}.pf-supplier-name{font-size:1.05rem;font-weight:800;color:#0b1f33}.pf-supplier-meta{font-size:.82rem;color:#6b7f97;margin-top:5px}.pf-best-card{border-color:#77d7ad;background:#f2fff9}.pf-best-card .pf-supplier-name{color:#087a4d}
-.pf-table-wrap{overflow-x:auto;border:1px solid #d7e2ee;border-radius:12px;background:#fff;margin:12px 0 16px}.pf-table{border-collapse:collapse;width:100%;min-width:1100px;font-size:.88rem}.pf-table th,.pf-table td{border-right:1px solid #e2e9f1;border-bottom:1px solid #e8eef4;padding:10px 9px;white-space:nowrap;text-align:right}.pf-table th{background:#f2f6fa;color:#23374d;font-weight:700}.pf-table th.left,.pf-table td.left{text-align:left}.pf-table .supplier-head{background:#eaf4ff;color:#096ecf;text-align:center}.pf-table .best-head{background:#e9fbf3;color:#087a4d;text-align:center}.pf-table td.best{background:#effcf6;color:#087a4d;font-weight:800}.pf-table tr.total td{font-weight:800;background:#f6f9fc}.pf-table tr.total td.best{background:#e6f9f0}.pf-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0 18px}.pf-note{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:16px}.pf-note.green{border-color:#72d5a9;background:#f2fff9}.pf-note strong{font-size:1.15rem}.pf-note.green strong{color:#087a4d}.pf-chart-note{background:#fff;border:1px solid #dbe5ef;border-bottom:0;border-radius:13px 13px 0 0;padding:12px 16px;color:#62748a;margin-top:10px}
+st.markdown('<style>:root{color-scheme:light!important;--pf-bg:#f7f9fc;--pf-panel:#fff;--pf-border:#dce4ef;--pf-blue:#087fff;--pf-text:#102039;--pf-muted:#63738a;--pf-green:#139556}\nhtml,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--pf-bg)!important;color:var(--pf-text)!important;font-family:"Source Sans 3","Segoe UI",sans-serif!important}\n[data-testid="stHeader"]{background:transparent!important;pointer-events:none;height:0!important}[data-testid="stToolbar"]{pointer-events:auto}\n.block-container{max-width:1560px;padding:22px 34px 30px!important}\n[data-testid="stVerticalBlock"]{gap:16px}\nh1,h2,h3,h4,p,label{color:var(--pf-text)}\n.st-key-pf_header{background:#fff;border:1px solid #edf1f7;border-radius:16px;box-shadow:0 12px 32px #20365012;padding:14px 22px 0;margin-bottom:20px}\n.st-key-pf_header [data-testid="stHorizontalBlock"]{align-items:center;gap:22px}\n.pf-brand{padding:1px 0 13px;white-space:nowrap}.pf-brand-name{font-size:42px;font-weight:800;letter-spacing:-1.6px;line-height:1.03;color:#09182d}.pf-brand-name span{color:var(--pf-blue)}.pf-brand small{display:block;font-size:15px;color:#596a81;margin-top:3px}\n.st-key-pf_nav{width:100%}.st-key-pf_nav [role="radiogroup"]>div:last-child{margin-left:auto}.st-key-pf_nav [data-testid="stRadio"]>label{display:none}\n.st-key-pf_nav [role="radiogroup"]{display:flex;flex-wrap:nowrap;align-items:stretch;gap:2px;width:100%}\n.st-key-pf_nav [role="radiogroup"] label{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;padding:22px 12px 25px;margin:0!important;min-height:78px;white-space:nowrap;border-bottom:3px solid transparent;cursor:pointer;border-radius:6px 6px 0 0}\n.st-key-pf_nav [role="radiogroup"] label>div:first-child{display:none!important}.st-key-pf_nav [data-testid="stRadioOption"]>div>div:first-child{display:none!important}\n.st-key-pf_nav [role="radiogroup"] label p{font-size:15px!important;font-weight:550;line-height:1.2;color:#24354d}\n.st-key-pf_nav [role="radiogroup"] label:before{content:"";width:26px;height:29px;flex-shrink:0;background:currentColor;mask-size:contain;mask-position:center;mask-repeat:no-repeat;color:#253b58}\n.st-key-pf_nav [role="radiogroup"] label:has(input:checked){border-bottom-color:var(--pf-blue);background:#f8fbff}\n.st-key-pf_nav [role="radiogroup"] label:has(input:checked) p,.st-key-pf_nav [role="radiogroup"] label:has(input:checked):before{color:var(--pf-blue)}\n.st-key-pf_nav [role="radiogroup"] label:hover{background:#f2f7fe}.st-key-pf_nav [role="radiogroup"] label:focus-within{outline:2px solid #94c8ff;outline-offset:-3px}\n.st-key-pf_nav [role="radiogroup"]>:last-child label{margin-left:auto!important;border-bottom-color:transparent}\n.st-key-pf_nav [role="radiogroup"]>:last-child label:before{content:var(--pf-initials,"PF");mask:none!important;background:var(--pf-blue);color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}\n.pf-page-heading{display:flex;align-items:center;gap:20px;padding:9px 0 14px}.pf-page-heading .pf-icon{color:var(--pf-blue);width:46px;height:46px;flex-shrink:0}.pf-page-heading h2{font-size:34px;font-weight:750;letter-spacing:-.6px;line-height:1.15;padding:0;margin:0}.pf-page-heading p{font-size:17px;color:#4d607a;margin:4px 0 0;line-height:1.4}\n.pf-icon{display:inline-block;width:24px;height:24px;vertical-align:middle}.pf-icon svg{display:block;width:100%;height:100%}\n[class*="st-key-pf_title_"] [data-testid="stHorizontalBlock"]{align-items:center}\n.stButton>button,.stFormSubmitButton>button,.stDownloadButton>button{border-radius:9px!important;border:1px solid #bdd6ee!important;background:#fff!important;color:#1761aa!important;min-height:44px;font-weight:600;padding:10px 18px;transition:background .15s,box-shadow .15s}\n.stButton>button:hover,.stDownloadButton>button:hover{background:#eef6ff!important;border-color:#087fff!important}\nbutton[kind="primary"],.stDownloadButton button[kind="primary"]{background:#087fff!important;border-color:#087fff!important;color:white!important;box-shadow:0 4px 9px #087fff24}\nbutton[kind="primary"] p{color:white!important}button[kind="primary"]:hover{background:#006de0!important}\n[data-testid="stFileUploader"]>label p{font-size:16px!important;font-weight:500!important}\n[data-testid="stFileUploaderDropzone"]{min-height:82px;background:#f1f6fc;border:1px dashed #c8d9ec;border-radius:11px;padding:14px 18px}\n[data-testid="stFileUploaderDropzone"] button{background:#fff;color:#1568bd;border:1px solid #b8d2ee;border-radius:8px}\n[data-testid="stFileUploaderFile"]{background:#fff;border-radius:8px;border:1px solid #e1e9f3;padding:8px 12px}\n[data-testid="stMetric"]{background:#fff;border:1px solid #d6e0ed;border-radius:12px;padding:16px 20px;min-height:108px;box-shadow:0 1px 2px #16345a03}\n[data-testid="stMetricLabel"] p{font-size:16px!important;font-weight:400!important;color:#3c4e65!important}\n[data-testid="stMetricValue"]{font-size:31px!important;line-height:1.35!important;font-weight:450!important;color:#102039!important;font-variant-numeric:tabular-nums}\n[data-testid="stAlert"]{border-radius:10px;padding:14px 18px}[data-testid="stAlert"] p{font-size:15px;line-height:1.45}\n[data-baseweb="notification"]{border-radius:10px}\n[data-testid="stTextInput"] input,[data-testid="stTextArea"] textarea,[data-baseweb="select"]>div{background:#fff!important;color:#102039!important;border-color:#d6e0ed}\n[data-testid="stExpander"]{border:1px solid #dce5ef;border-radius:10px;background:#fff}\n[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dce4ef;border-radius:11px;overflow:hidden;background:#fff}\n.pf-section-title{display:flex;gap:12px;align-items:center;margin:9px 0 12px}.pf-section-title .pf-icon{width:27px;height:27px;color:var(--pf-blue)}.pf-section-title h3{font-size:25px;font-weight:700;margin:0;padding:0;color:#102039}\n.pf-table-wrap{width:100%;overflow:auto;border:1px solid #dce4ef;border-radius:11px;background:#fff;margin:2px 0 8px;box-shadow:0 2px 5px #19324a04}\n.pf-table{border-collapse:separate;border-spacing:0;width:100%;min-width:1100px;font-size:14px;font-variant-numeric:tabular-nums;color:#20344d}\n.pf-table th,.pf-table td{padding:11px 13px;text-align:right;border-right:1px solid #e5ebf3;border-bottom:1px solid #e5ebf3;white-space:nowrap}\n.pf-table th{background:#f1f5fa;color:#31465f;font-weight:600}.pf-table th.left,.pf-table td.left{text-align:left}.pf-table td.left{max-width:340px;white-space:normal;min-width:200px}\n.pf-table th:last-child,.pf-table td:last-child{border-right:0}.pf-table tbody tr:last-child td{border-bottom:0}.pf-table tbody tr:nth-child(even) td:not(.best){background:#fbfcfe}.pf-table tbody tr:hover td:not(.best){background:#f1f7ff}\n.pf-table .supplier-head{text-align:center;background:#f0f5fb;color:#153a64;padding:16px 10px}.pf-table .best-head{text-align:center;background:#eaf8f0;color:#158049}.pf-table td.best{background:#f0faf4;color:#118448;font-weight:650}.pf-table tr.total td{background:#edf3fa!important;font-weight:750;padding-top:15px;padding-bottom:15px}.pf-table tr.total td.best{background:#e1f4e9!important}\n.pf-simple-table{min-width:500px;font-size:15px}.pf-simple-table th:first-child,.pf-simple-table td:first-child{text-align:left;white-space:normal;width:72%}.pf-simple-table th{font-weight:500;padding:9px 14px}.pf-simple-table td{padding:9px 14px}\n.pf-supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:8px 0 4px}.pf-supplier-card{background:white;border:1px solid #dce4ef;border-radius:12px;padding:20px 22px;min-height:114px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 3px 12px #1f375408}\n.pf-supplier-name{font-size:24px;font-weight:800;letter-spacing:-.4px;color:#15588f}.pf-supplier-meta{font-size:13px;color:#687c92;margin-top:9px}.pf-supplier-card[data-brand="pum"] .pf-supplier-name{color:#0088c5;font-size:37px}.pf-supplier-card[data-brand="tube"] .pf-supplier-name{color:#155389;font-size:28px}.pf-supplier-card[data-brand="frans"] .pf-supplier-name{color:#222;letter-spacing:-1px;border-left:4px solid #ee334e;padding-left:10px;font-size:24px}\n.pf-comparison-summary{display:flex;justify-content:space-between;gap:16px;align-items:center;margin:0 0 8px;padding:15px 20px;border:1px solid #c8e7d7;border-radius:11px;background:#f0faf4}.pf-comparison-summary strong{font-size:23px;color:#098645}.pf-comparison-summary span{color:#466859;font-size:15px}\n.pf-bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:8px 0 14px}.pf-note{background:#f0f7ff;border:1px solid #b5d8ff;border-radius:11px;padding:18px 22px;color:#245b92;line-height:1.75}.pf-note.green{background:#effaf3;border-color:#b8dfc9;color:#287243}.pf-note strong{font-size:23px;font-weight:700}.pf-note.green strong{color:#0e8a48}.pf-note span{font-size:14px;color:#61748a}\n.auth-card{max-width:620px;margin:20px auto;padding:25px;border:1px solid #dce4ef;border-radius:14px;background:#fff}\n[data-testid="stCaptionContainer"]{color:#718199;font-size:13px}\n@media(max-width:1200px){.block-container{padding:18px 22px!important}.pf-brand-name{font-size:34px}.pf-brand small{font-size:12px}.st-key-pf_header{padding:10px 15px 0}.st-key-pf_nav [role="radiogroup"] label{padding:20px 8px;gap:6px}.st-key-pf_nav [role="radiogroup"] label p{font-size:14px!important}.st-key-pf_nav [role="radiogroup"] label:before{width:21px}}\n@media(max-width:850px){.st-key-pf_header [data-testid="stHorizontalBlock"]{flex-wrap:wrap}.st-key-pf_header [data-testid="stColumn"]{min-width:100%!important;width:100%!important;flex:1 1 100%!important}.pf-brand{padding-bottom:0}.st-key-pf_header [data-testid="stHorizontalBlock"]{gap:4px}.st-key-pf_nav [role="radiogroup"]{overflow-x:auto}.st-key-pf_nav [role="radiogroup"] label{min-height:64px;padding:15px 10px}.st-key-pf_nav [role="radiogroup"]>:last-child label{margin-left:0!important}.pf-page-heading h2{font-size:29px}.pf-page-heading p{font-size:15px}.pf-page-heading{gap:13px}.pf-page-heading .pf-icon{width:35px;height:35px}.pf-bottom{grid-template-columns:1fr}}\n@media(max-width:600px){.block-container{padding:12px 14px!important}.st-key-pf_header{margin-bottom:8px}.pf-brand-name{font-size:34px}.pf-page-heading h2{font-size:27px}.pf-comparison-summary{align-items:flex-start;flex-direction:column}.pf-supplier-grid{grid-template-columns:1fr}.pf-table td.left{min-width:170px}[data-testid="stMetricValue"]{font-size:27px!important}.pf-market-grid{grid-template-columns:1fr!important}}\n\n.st-key-pf_nav [role="radiogroup"]>:nth-child(1) label:before{mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m12%203%209%205v9l-9%205-9-5V8z%22/%3E%3Cpath%20d%3D%22m3%208%209%205%209-5M12%2013v9M7.5%205.5l9%205%22/%3E%3C/svg%3E")}\n.st-key-pf_nav [role="radiogroup"]>:nth-child(2) label:before{mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%2022h8M6%2022V4h4v18M3%204h18v3H3zM8%201v3M19%207v7l-2%202M5%2010h6M5%2014h6M5%2018h6M10%204l5-3%206%203%22/%3E%3C/svg%3E")}\n.st-key-pf_nav [role="radiogroup"]>:nth-child(3) label:before{mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v18M7%2021h10M4%206h16M4%206%201%2014h6L4%206Zm16%200-3%208h6l-3-8Z%22/%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%225%22%20r%3D%222%22/%3E%3C/svg%3E")}\n.st-key-pf_nav [role="radiogroup"]>:nth-child(4) label:before{mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%202H5v20h14V7l-5-5Z%22/%3E%3Cpath%20d%3D%22M14%202v6h5M8%2012h8M8%2016h8%22/%3E%3C/svg%3E")}\n.pf-market-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0 18px}.pf-market-kpi{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:15px 17px;box-shadow:0 4px 14px rgba(31,55,84,.035)}.pf-market-kpi .n{font-size:1.7rem;font-weight:850;color:#071b33}.pf-market-kpi .l{font-size:.84rem;color:#62748a;margin-top:3px}.pf-finding{background:#fff;border:1px solid #dbe5ef;border-left:5px solid #0b8cff;border-radius:12px;padding:16px 18px;margin:10px 0}.pf-finding.warn{border-left-color:#f59e0b}.pf-finding.danger{border-left-color:#e34b4b}.pf-finding.link{border-left-color:#7c5cff}.pf-finding.ok{border-left-color:#12a56a}.pf-finding h4{margin:0 0 7px;font-size:1.05rem}.pf-finding p{margin:4px 0;color:#40556c}.pf-source{font-size:.82rem;color:#6d8095;margin-top:8px}.pf-source-box{background:#f6f9fc;border:1px solid #dce6ef;border-radius:9px;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.82rem;white-space:pre-wrap;color:#203449}.pf-doc-chip{display:inline-block;background:#eef6ff;color:#0b66bd;border:1px solid #c9e3ff;border-radius:999px;padding:5px 10px;margin:3px 5px 3px 0;font-size:.78rem}.pf-ai-note{background:#eef7ff;border:1px solid #b9ddff;border-radius:11px;padding:12px 15px;color:#31506e;margin:8px 0 16px}\n</style>', unsafe_allow_html=True)
 
-.pf-market-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0 18px}.pf-market-kpi{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:15px 17px;box-shadow:0 4px 14px rgba(31,55,84,.035)}.pf-market-kpi .n{font-size:1.7rem;font-weight:850;color:#071b33}.pf-market-kpi .l{font-size:.84rem;color:#62748a;margin-top:3px}.pf-finding{background:#fff;border:1px solid #dbe5ef;border-left:5px solid #0b8cff;border-radius:12px;padding:16px 18px;margin:10px 0}.pf-finding.warn{border-left-color:#f59e0b}.pf-finding.danger{border-left-color:#e34b4b}.pf-finding.link{border-left-color:#7c5cff}.pf-finding.ok{border-left-color:#12a56a}.pf-finding h4{margin:0 0 7px;font-size:1.05rem}.pf-finding p{margin:4px 0;color:#40556c}.pf-source{font-size:.82rem;color:#6d8095;margin-top:8px}.pf-source-box{background:#f6f9fc;border:1px solid #dce6ef;border-radius:9px;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.82rem;white-space:pre-wrap;color:#203449}.pf-doc-chip{display:inline-block;background:#eef6ff;color:#0b66bd;border:1px solid #c9e3ff;border-radius:999px;padding:5px 10px;margin:3px 5px 3px 0;font-size:.78rem}.pf-ai-note{background:#eef7ff;border:1px solid #b9ddff;border-radius:11px;padding:12px 15px;color:#31506e;margin:8px 0 16px}
-@media(max-width:1050px){[data-testid="stRadio"]:has(input[name="pf_main_nav"]){margin-left:245px!important;width:calc(100% - 265px)!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label{padding-left:8px!important;padding-right:8px!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child:before{display:none!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child{padding-left:8px!important}}
-@media(max-width:768px){.pf-market-grid{grid-template-columns:1fr 1fr}.block-container{padding:.7rem}.hero{height:auto;padding:15px}.hero h1{font-size:1.8rem}.hero p{font-size:.82rem}[data-testid="stRadio"]:has(input[name="pf_main_nav"]){position:static!important;margin:8px 0 16px!important;width:100%!important;height:auto!important;overflow-x:auto!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) [role="radiogroup"]{overflow-x:auto!important}[data-testid="stRadio"]:has(input[name="pf_main_nav"]) label:last-child{margin-left:0!important}.pf-bottom{grid-template-columns:1fr}.pf-sub{margin-left:0}}
-</style>
-<div class="hero"><h1><span class="price">Price</span><span class="flow">Flow</span></h1><p>Analyse & comparaison des achats</p></div>
-""", unsafe_allow_html=True)
+PF_ICONS = {'box': '<path d="m12 3 9 5v9l-9 5-9-5V8z"/><path d="m3 8 9 5 9-5M12 13v9M7.5 5.5l9 5"/>', 'crane': '<path d="M4 22h8M6 22V4h4v18M3 4h18v3H3zM8 1v3M19 7v7l-2 2M5 10h6M5 14h6M5 18h6M10 4l5-3 6 3"/>', 'scale': '<path d="M12 3v18M7 21h10M4 6h16M4 6 1 14h6L4 6Zm16 0-3 8h6l-3-8Z"/><circle cx="12" cy="5" r="2"/>', 'file': '<path d="M14 2H5v20h14V7l-5-5Z"/><path d="M14 2v6h5M8 12h8M8 16h8"/>', 'chart': '<path d="M4 20v-6h3v6M11 20V9h3v11M18 20V3h3v17"/>', 'user': '<circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>'}
+
+
+def pf_icon(name):
+    shape = PF_ICONS.get(name, PF_ICONS["file"])
+    return '<span class="pf-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + shape + '</svg></span>'
+
+
+def pf_heading(title, subtitle, icon="file"):
+    st.markdown(f'<div class="pf-page-heading">{pf_icon(icon)}<div><h2>{html.escape(title)}</h2><p>{html.escape(subtitle)}</p></div></div>', unsafe_allow_html=True)
+
+
+def pf_section(title, icon="file"):
+    st.markdown(f'<div class="pf-section-title">{pf_icon(icon)}<h3>{html.escape(title)}</h3></div>', unsafe_allow_html=True)
+
+
+def pf_number(value, decimals=2):
+    return f"{float(value):,.{decimals}f}".replace(",", " ").replace(".", ",")
+
+
+def pf_simple_table(frame):
+    view = frame.copy()
+    for column in view.columns:
+        if pd.api.types.is_numeric_dtype(view[column]):
+            view[column] = view[column].apply(lambda value: pf_number(value) if pd.notna(value) else "—")
+    table = view.to_html(index=False, escape=True, border=0, classes="pf-table pf-simple-table")
+    st.markdown('<div class="pf-table-wrap">' + table + '</div>', unsafe_allow_html=True)
+
+
+def pf_navigation():
+    options = ["▣ Achats / Fournisseurs", "🏗 Locations", "⚖ Comparatif", "📋 Analyse Marché", "Mon compte ⌄"]
+    labels = dict(zip(options, ["Achats / Fournisseurs", "Locations", "Comparatif", "Analyse Marché", "Mon compte ⌄"]))
+    user = st.session_state.get("pf_user", {})
+    name = user.get("user_metadata", {}).get("full_name") or user.get("email", "")
+    parts = re.findall(r"[A-Za-zÀ-ÿ]+", name.split("@")[0])
+    initials = "".join(part[0] for part in parts[:2]).upper() or "PF"
+    st.markdown(f'<style>:root{{--pf-initials:"{initials}"}}</style>', unsafe_allow_html=True)
+    with st.container(key="pf_header"):
+        brand, menu = st.columns([2.5, 8], gap="small")
+        with brand:
+            st.markdown('<div class="pf-brand"><div class="pf-brand-name">Price<span>Flow</span></div><small>Analyse & comparaison des achats</small></div>', unsafe_allow_html=True)
+        with menu:
+            with st.container(key="pf_nav"):
+                return st.radio("Navigation PriceFlow", options, format_func=labels.get, horizontal=True, label_visibility="collapsed", key="pf_main_nav")
+
+
+def pf_supplier_cards(offers):
+    cards = []
+    for offer in offers:
+        supplier = str(offer["Fournisseur"])
+        brand = "pum" if supplier == "PUM" else "tube" if "H-TUBE" in supplier else "frans" if "FRANS BONHOMME" in supplier else "other"
+        title = "H-TUBE" if brand == "tube" else supplier
+        cards.append(f'<div class="pf-supplier-card" data-brand="{brand}"><div class="pf-supplier-name">{html.escape(title)}</div><div class="pf-supplier-meta">N° {html.escape(str(offer["N° document"]))} · {len(offer["Lignes"])} lignes<br>{fmt_money(offer["Total HT"])}</div></div>')
+    st.markdown('<div class="pf-supplier-grid">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+
 
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -895,8 +904,11 @@ def rapid_ocr_engine():
 
 
 def image_ocr(image):
-    import numpy as np
-    import cv2
+    try:
+        import numpy as np
+        import cv2
+    except (ImportError, OSError) as exc:
+        raise RuntimeError("OCR indisponible sur le serveur. Installez les dépendances du requirements.txt fourni (dont opencv-python et rapidocr_onnxruntime), ainsi que packages.txt sur Streamlit Cloud, puis redémarrez l'application.") from exc
     array = np.array(image.convert("RGB"))
     # Redresse les scans avant de reconstruire les lignes du tableau.
     edges = cv2.Canny(cv2.cvtColor(array, cv2.COLOR_RGB2GRAY), 50, 150)
@@ -924,9 +936,18 @@ def image_ocr(image):
 @lru_cache(maxsize=8)
 def pdf_page_texts(pdf_bytes):
     pages = []
+    terms_follow = False
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page in pdf.pages:
             text = page.extract_text(x_tolerance=2, y_tolerance=3) or ""
+            # Les CGV annexées en image ne font pas partie du tableau commercial.
+            # Ne pas imposer l'OCR si le document annonce explicitement ces annexes.
+            if not text.strip() and terms_follow:
+                pages.append(("", False))
+                continue
+            if (detect_supplier(text) == "ANCONETTI" and detect_total_ht(text, "ANCONETTI") is not None
+                    and re.search(r"vente.{0,15}ci-annex", text, re.I)):
+                terms_follow = True
             area = sum(max(0, im["x1"] - im["x0"]) * max(0, im["bottom"] - im["top"]) for im in page.images)
             image_table = area > page.width * page.height * .15 and len(re.findall(r"\d+[,.]\d{2}", text)) < 4
             incomplete_table = (len(text) < 1000 and re.search(r"D.signation|Total\s*:", text, re.I)
@@ -1717,6 +1738,7 @@ def logout_priceflow():
 
 def render_auth():
     st.markdown('<div class="auth-card">', unsafe_allow_html=True)
+    st.markdown('<div class="pf-brand"><div class="pf-brand-name">Price<span>Flow</span></div><small>Analyse & comparaison des achats</small></div>', unsafe_allow_html=True)
     st.subheader("Bienvenue sur PriceFlow")
     st.caption("Connectez-vous pour accéder à votre espace et à vos outils PriceFlow.")
 
@@ -1804,22 +1826,16 @@ require_login()
 load_cloud_history()
 
 
-nav = st.radio(
-    "Navigation PriceFlow",
-    ["▣ Achats / Fournisseurs", "🏗 Locations", "⚖ Comparatif", "📋 Analyse Marché", "Mon compte ⌄"],
-    horizontal=True,
-    label_visibility="collapsed",
-    key="pf_main_nav",
-)
+nav = pf_navigation()
 
 if nav == "▣ Achats / Fournisseurs":
-    st.subheader("📦 Achats / Fournisseurs")
-    st.markdown('<p class="pf-sub">Importez vos documents fournisseurs et analysez automatiquement vos achats.</p>', unsafe_allow_html=True)
-
-    top1, top2 = st.columns([5, 1])
-    with top2:
-        if st.button("↻ Nouveau BL", use_container_width=True):
-            new_document()
+    with st.container(key="pf_title_purchase"):
+        title_col, action_col = st.columns([4, 1], vertical_alignment="center")
+        with title_col:
+            pf_heading("Achats / Fournisseurs", "Importez vos documents fournisseurs et analysez automatiquement vos achats.", "box")
+        with action_col:
+            if st.button("Nouveau BL", icon=":material/add_circle_outline:", type="primary", use_container_width=True):
+                new_document()
 
     uploaded = st.file_uploader(
         "Déposez votre BL / bon d'enlèvement / commande / offre de prix",
@@ -1946,7 +1962,7 @@ if nav == "▣ Achats / Fournisseurs":
                     st.info("Certains prix unitaires imprimés sont arrondis. Pour reproduire le montant de chaque ligne dans l'export, le prix exporté est calculé à partir du montant imprimé divisé par la quantité.")
                     st.dataframe(pd.DataFrame(adjusted)[["Référence", "Prix unitaire imprimé", "Prix unitaire", "Montant imprimé"]], hide_index=True)
                 st.info(f"{len(rows)} ligne(s) extraite(s), {len(df)} ligne(s) dans l'export.")
-                st.subheader("Aperçu avant export")
+                pf_section("Aperçu avant export")
                 st.dataframe(df, use_container_width=True, hide_index=True)
 
                 # XlsxWriter écrit les chaînes dans sharedStrings.xml.
@@ -2006,17 +2022,16 @@ if nav == "▣ Achats / Fournisseurs":
             st.error(f"Erreur de lecture du PDF : {e}")
 
 if nav == "🏗 Locations":
-    st.subheader("🏗️ Locations")
-    st.markdown('<p class="pf-sub">Analysez vos devis de location et retrouvez rapidement les coûts de vos matériels.</p>', unsafe_allow_html=True)
-
     if "location_uploader_key" not in st.session_state:
         st.session_state.location_uploader_key = 0
-
-    loc_top1, loc_top2 = st.columns([5, 1])
-    with loc_top2:
-        if st.button("↻ Nouvelle location", use_container_width=True):
-            st.session_state.location_uploader_key += 1
-            st.rerun()
+    with st.container(key="pf_title_location"):
+        title_col, action_col = st.columns([4, 1], vertical_alignment="center")
+        with title_col:
+            pf_heading("Locations", "Analyse de vos devis et offres de location", "crane")
+        with action_col:
+            if st.button("Nouvelle location", icon=":material/add_circle_outline:", type="primary", use_container_width=True):
+                st.session_state.location_uploader_key += 1
+                st.rerun()
 
     uploaded_loc = st.file_uploader(
         "Déposez votre devis / offre de location",
@@ -2068,8 +2083,8 @@ if nav == "🏗 Locations":
                     track_usage("location", {"supplier": loc["Loueur"], "document_number": loc["N° document"]})
                     st.session_state.last_location_usage = loc_signature
 
-                st.subheader("Détail de la location")
-                st.dataframe(loc_df, use_container_width=True, hide_index=True)
+                pf_section("Détail de la location")
+                pf_simple_table(loc_df)
 
                 export_loc = pd.DataFrame([{
                     "Loueur": loc["Loueur"],
@@ -2114,7 +2129,7 @@ if nav == "🏗 Locations":
 
 
 if nav == "⚖ Comparatif":
-    st.markdown('<div class="pf-title"><span class="ico">⚖️</span><h2>Comparatif fournisseurs</h2></div><p class="pf-sub">Comparez vos devis et identifiez automatiquement les meilleurs prix</p>', unsafe_allow_html=True)
+    pf_heading("Comparatif fournisseurs", "Comparez vos devis et identifiez automatiquement les meilleurs prix", "scale")
 
     compare_files = st.file_uploader("Déposez 2 devis ou plus", type=["pdf"], accept_multiple_files=True, key="compare_pdfs")
     if compare_files:
@@ -2135,8 +2150,7 @@ if nav == "⚖ Comparatif":
                     track_usage("comparatif", {"documents":len(offers),"suppliers":[o["Fournisseur"] for o in offers]})
                     st.session_state.compare_usage_sig=sig
 
-                cards=''.join(f'<div class="pf-supplier-card"><div class="pf-supplier-name">{html.escape(str(o["Fournisseur"]))}</div><div class="pf-supplier-meta">N° {html.escape(str(o["N° document"]))}<br>{len(o["Lignes"])} article(s) · {fmt_money(o["Total HT"])}</div></div>' for o in offers)
-                st.markdown(f'<div class="pf-supplier-grid">{cards}</div>', unsafe_allow_html=True)
+                pf_supplier_cards(offers)
 
                 records=[]
                 for o in offers:
@@ -2166,9 +2180,7 @@ if nav == "⚖ Comparatif":
                         comparable=[r for r in rows if r["comparable"]]
                         saving=sum(r["gap"] for r in comparable); worstbasket=sum(r["best_total"]+r["gap"] for r in comparable)
                         saving_pct=(saving/worstbasket*100) if worstbasket else 0
-                        top1,top2=st.columns([3,1])
-                        with top1: st.success(f"🏆 Meilleurs prix identifiés automatiquement sur {len(comparable)} ligne(s) comparable(s).")
-                        with top2: st.metric("Économie potentielle", fmt_money(saving))
+                        st.markdown(f'<div class="pf-comparison-summary"><span>Meilleurs prix identifiés sur <b>{len(comparable)} lignes comparables</b></span><div><span>Économie potentielle </span><strong>{fmt_money(saving)}</strong></div></div>', unsafe_allow_html=True)
 
                         h1='<tr><th rowspan="2">#</th><th rowspan="2" class="left">Désignation</th><th rowspan="2">Qté</th>'
                         h2='<tr>'
@@ -2187,16 +2199,16 @@ if nav == "⚖ Comparatif":
                                 else:
                                     pu=float(rr["Prix unitaire"]); total=r["qty"]*pu; totals[sup]+=total
                                     cls=' class="best"' if sup==r["best_sup"] else ''
-                                    body+=f'<td{cls}>{pu:,.2f}</td><td{cls}>{total:,.2f}</td>'; er[f'{sup} PU']=pu; er[f'{sup} Total']=total
+                                    body+=f'<td{cls}>{pf_number(pu)}</td><td{cls}>{pf_number(total)}</td>'; er[f'{sup} PU']=pu; er[f'{sup} Total']=total
                             best_total_sum+=r["best_total"]
-                            body+=f'<td class="best left">{html.escape(str(r["best_sup"]))}</td><td class="best">{r["best_pu"]:,.2f}</td><td class="best">{r["best_total"]:,.2f}</td><td>{r["gap"]:,.2f}</td><td>{r["gap_pct"]:.1f}%</td></tr>'
+                            body+=f'<td class="best left">{html.escape(str(r["best_sup"]))}</td><td class="best">{pf_number(r["best_pu"])}</td><td class="best">{pf_number(r["best_total"])}</td><td>{pf_number(r["gap"])}</td><td>{pf_number(r["gap_pct"], 1)}%</td></tr>'
                             er.update({"Meilleur fournisseur":r["best_sup"],"Meilleur PU":r["best_pu"],"Meilleur total":r["best_total"],"Écart max €":r["gap"],"Écart max %":r["gap_pct"]}); export.append(er)
                         body+='<tr class="total"><td colspan="2" class="left">TOTAL</td><td></td>'
-                        for sup in suppliers: body+=f'<td></td><td>{totals[sup]:,.2f}</td>'
-                        body+=f'<td class="best"></td><td class="best"></td><td class="best">{best_total_sum:,.2f}</td><td>{saving:,.2f}</td><td>{saving_pct:.1f}%</td></tr>'
+                        for sup in suppliers: body+=f'<td></td><td>{pf_number(totals[sup])}</td>'
+                        body+=f'<td class="best"></td><td class="best"></td><td class="best">{pf_number(best_total_sum)}</td><td>{pf_number(saving)}</td><td>{pf_number(saving_pct, 1)}%</td></tr>'
                         table=f'<div class="pf-table-wrap"><table class="pf-table"><thead>{h1}{h2}</thead><tbody>{body}</tbody></table></div>'
                         st.markdown(table,unsafe_allow_html=True)
-                        st.markdown(f'<div class="pf-bottom"><div class="pf-note green">En choisissant les meilleurs prix<br><strong>Vous économisez {fmt_money(saving)}</strong><br><span>Soit {saving_pct:.1f}% par rapport aux prix les plus élevés comparables</span></div><div class="pf-note">📊 Analyse terminée<br><strong>{len(rows)} lignes analysées</strong><br><span>Meilleurs prix trouvés sur {len(comparable)} lignes comparables</span></div></div>',unsafe_allow_html=True)
+                        st.markdown(f'<div class="pf-bottom"><div class="pf-note green">En choisissant les meilleurs prix<br><strong>Vous économisez {fmt_money(saving)}</strong><br><span>Soit {pf_number(saving_pct, 1)}% par rapport aux prix les plus élevés comparables</span></div><div class="pf-note">📊 Analyse terminée<br><strong>{len(rows)} lignes analysées</strong><br><span>Meilleurs prix trouvés sur {len(comparable)} lignes comparables</span></div></div>',unsafe_allow_html=True)
                         out_cmp=io.BytesIO(); edf=pd.DataFrame(export)
                         with pd.ExcelWriter(out_cmp,engine="xlsxwriter") as writer:
                             edf.to_excel(writer,index=False,sheet_name="Comparatif")
@@ -2209,7 +2221,7 @@ if nav == "⚖ Comparatif":
 
 
 if nav == "📋 Analyse Marché":
-    st.markdown('<div class="pf-title"><span class="ico">📋</span><h2>Analyse Marché</h2></div><p class="pf-sub">Analyse CCTP, DPGF et pièces marché orientée CVC · Plomberie · Génie Climatique</p>', unsafe_allow_html=True)
+    pf_heading("Analyse Marché", "Analysez vos CCTP, DPGF et pièces marché CVC et plomberie.", "file")
     st.markdown('<div class="pf-ai-note"><strong>👁 Aperçu — fonctionnalité en développement</strong><br>Cette page est une démonstration visuelle. Aucune analyse IA ni consommation API n’est effectuée.</div>', unsafe_allow_html=True)
     st.markdown("**Documents du marché**")
     st.markdown('<span class="pf-doc-chip">📄 CCTP CVC</span><span class="pf-doc-chip">📄 DPGF CVC</span><span class="pf-doc-chip">📄 CCTP GTB</span><span class="pf-doc-chip">📄 DPGF GTB</span>', unsafe_allow_html=True)
@@ -2251,7 +2263,7 @@ if nav == "📋 Analyse Marché":
     st.info("Le futur module couvrira notamment chauffage, climatisation, chaufferie, PAC/groupes froids, ventilation, plomberie, GTB/régulation, matériaux, DN, calorifuge, supports, essais, mises en service et interfaces entre lots.")
 
 if nav == "Mon compte ⌄":
-    st.subheader("👤 Mon compte")
+    pf_heading("Mon compte", "Retrouvez vos informations et les accès de votre compte.", "user")
     user = st.session_state.get("pf_user", {}) or {}
     email = user.get("email", "—")
     created_at = user.get("created_at", "")

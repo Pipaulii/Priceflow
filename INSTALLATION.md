@@ -1,23 +1,34 @@
-# Installation du correctif PriceFlow
+# PriceFlow — version blanc et bleu, PDF et scans
 
-1. Remplacer `app.py` dans le projet par le fichier fourni.
-2. Ajouter le contenu de `requirements-ocr.txt` au fichier `requirements.txt` existant du projet. Conserver les autres dépendances.
-3. Redémarrer/redéployer l'application pour installer les dépendances et charger le nouveau code.
+## Mise à jour sur Streamlit Community Cloud
 
-En local, les dépendances OCR peuvent également être installées avec :
+1. Décompressez l'archive.
+2. Dans le dépôt de votre application, remplacez `app.py` et `requirements.txt` par ceux fournis. Ajoutez `packages.txt` à la racine du dépôt et `.streamlit/config.toml` dans le dossier `.streamlit`.
+3. Conservez vos secrets existants et la configuration de connexion. L'archive ne contient aucun secret et ne modifie pas vos données.
+4. Laissez Streamlit reconstruire l'application, puis utilisez « Reboot app » si nécessaire. Si vous recréez l'environnement, choisissez Python 3.12.
+5. Importez de nouveau `7477279.PDF` : le résultat attendu est ANCONETTI, document 74.77279, une ligne article à 33,05 € et 0,04 € de REP, soit 33,09 € HT.
 
-```sh
-python -m pip install -r requirements-ocr.txt
+Il faut installer les fichiers de dépendances, pas seulement remplacer app.py : le module Python `cv2` est fourni par `opencv-python`. `packages.txt` fournit les bibliothèques Linux utilisées sur Streamlit Cloud. Évitez de conserver en parallèle une autre variante d'OpenCV (headless/contrib) dans vos dépendances.
+
+## Utilisation locale
+
+Dans un environnement Python 3.12 :
+
+```
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
 ```
 
-L'OCR est exécuté localement par RapidOCR. Il n'envoie pas les documents à un service externe et ne nécessite pas Tesseract. Il intervient sur les scans, les couches texte incomplètes et lors d'un nouvel essai si le contrôle financier échoue. Les résultats de lecture sont conservés temporairement en mémoire pour éviter de refaire l'OCR à chaque interaction.
+L'OCR principal RapidOCR ne nécessite pas d'installation manuelle de Tesseract. Le moteur Tesseract est un secours facultatif. Les modèles RapidOCR sont inclus dans sa distribution.
 
-Dans Achats / Fournisseurs, un scan Anconetti regroupant plusieurs bons permet de choisir le bon à importer. Les pages de suite sont réunies. Le PDF conservé dans l'historique correspond au bon sélectionné. Le comparatif refuse un fichier regroupant plusieurs bons et indique de passer par Achats / Fournisseurs.
+## Modifications
 
-Les contributions déjà comprises dans les lignes ne sont pas ajoutées deux fois. La REP FIRST facturée après le Total HT est exportée séparément et incluse dans la cible de contrôle. Les REP détaillées de même montant sont additionnées.
+- Menu intégré au bandeau blanc, icônes, onglet bleu actif et avatar.
+- Pages Achats, Locations et Comparatif harmonisées en blanc et bleu.
+- Tableau comparatif avec meilleurs prix en vert et montants au format français.
+- Lecture du PDF Anconetti fourni sans OCR inutile des annexes de conditions générales.
+- Dépendances OCR explicites et message compréhensible si elles manquent.
 
-Les calculs sont arrondis au centime par ligne. Pour LORFLEX, si le prix affiché à deux décimales ne reproduit pas le montant de ligne imprimé, le prix exporté est calculé à partir de ce montant divisé par la quantité ; l'interface affiche les deux prix.
+La connexion, les droits d'administration et les exports sont conservés. Les données de démonstration et les raccourcis de connexion utilisés pour les contrôles locaux ne sont pas inclus dans l'application livrée.
 
-Le format d'export conserve ses quatre colonnes. Le PDF original reste la référence pour contrôler les libellés et les références OCR. Un total concordant ne garantit pas l'orthographe de chaque désignation. Un écart non résolu reste signalé.
-
-Validation : compilation du fichier complet, exécution des fonctions réelles d'extraction sur les documents fournis, et tests du bloc de calcul/export utilisé par l'interface. L'application déployée et la connexion Supabase n'ont pas été exécutées pendant ces tests. Les tests portent sur les achats et devis fournis ; les locations n'ont pas été modifiées.
+Les contrôles sont locaux ; cette archive n'a pas été déployée sur votre serveur.
