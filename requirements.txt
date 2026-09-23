@@ -1,9 +1,0 @@
-streamlit
-pandas
-pdfplumber
-pypdf
-streamlit-cookies-controller
-xlsxwriter
-PyMuPDF
-pytesseract
-Pillow
