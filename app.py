@@ -48,7 +48,16 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],.stApp{backg
 [data-testid="stFileUploaderDropzone"]{min-height:78px!important;background:#f7fbff!important;border:1px solid #b8d9f8!important;border-radius:12px!important;padding:12px 16px!important}[data-testid="stFileUploaderDropzone"] button{background:#0b8cff!important;color:#fff!important;border-color:#0b8cff!important}
 div[data-testid="stMetric"]{background:#fff;border:1px solid #d6e0ea;padding:16px 20px;border-radius:13px;box-shadow:0 3px 12px rgba(31,55,84,.035)}div[data-testid="stMetricLabel"] p{font-size:.92rem!important;color:#25384d!important}div[data-testid="stMetricValue"]{color:#071b33!important;font-size:1.72rem!important}
 [data-testid="stAlert"]{border-radius:10px!important}.auth-card{max-width:620px;margin:1.2rem auto 0;padding:1.35rem;border:1px solid var(--pf-border);border-radius:16px;background:#fff}
-[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dbe5ef;border-radius:11px;overflow:hidden}[data-testid="stExpander"]{background:#fff!important;border:1px solid #dbe5ef!important;border-radius:10px!important}
+/* Grilles PriceFlow : thème clair */
+[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dbe5ef!important;border-radius:11px!important;overflow:hidden!important;background:#fff!important;color:#071b33!important}
+[data-testid="stDataFrame"]>div,[data-testid="stTable"]>div{background:#fff!important;color:#071b33!important}
+[data-testid="stDataFrame"] [role="grid"],[data-testid="stDataFrame"] [role="gridcell"],[data-testid="stDataFrame"] [role="columnheader"]{background:#fff!important;color:#071b33!important;border-color:#e2e9f1!important}
+[data-testid="stDataFrame"] [role="columnheader"]{background:#f2f6fa!important;color:#23374d!important;font-weight:700!important}
+[data-testid="stDataFrame"] canvas{filter:none!important}
+[data-testid="stTable"] table{background:#fff!important;color:#071b33!important}
+[data-testid="stTable"] th{background:#f2f6fa!important;color:#23374d!important}
+[data-testid="stTable"] td{background:#fff!important;color:#071b33!important;border-color:#e2e9f1!important}
+[data-testid="stExpander"]{background:#fff!important;border:1px solid #dbe5ef!important;border-radius:10px!important}
 div[data-testid="element-container"]:has(iframe[title="streamlit_cookies_controller.cookie_controller.cookie_controller"]){display:none!important}
 h1,h2,h3,h4,h5,h6,p,label,[data-testid="stMarkdownContainer"]{color:var(--pf-text)}[data-testid="stCaptionContainer"],.stCaption{color:var(--pf-muted)!important}
 h3{font-size:1.75rem!important;font-weight:800!important;letter-spacing:-.02em!important;margin-top:.65rem!important}
