@@ -1608,15 +1608,15 @@ def document_pdf(title, metadata, frames, notes=()):
     return output.getvalue()
 
 
-def document_actions(excel, pdf, stem, summary, key):
+def document_actions(excel, pdf, stem, summary, key, compact=False):
     from urllib.parse import urlencode, quote
-    left, middle, right = st.columns(3)
+    left, middle, right = st.columns([1, 1, .22] if compact else 3)
     with left:
-        st.download_button("Exporter en Excel", icon=":material/download:", data=excel, file_name=stem+'.xlsx', mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key=key+'_xlsx', on_click="ignore")
+        st.download_button("Exporter en Excel", icon=":material/download:", data=excel, file_name=stem+'.xlsx', mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, type="primary" if compact else "secondary", key=key+'_xlsx', on_click="ignore")
     with middle:
         st.download_button("Exporter en PDF", icon=":material/picture_as_pdf:", data=pdf, file_name=stem+'.pdf', mime="application/pdf", use_container_width=True, key=key+'_pdf', on_click="ignore")
     with right:
-        with st.popover("Partager", icon=":material/share:", type="primary", use_container_width=True):
+        with st.popover("⋯" if compact else "Partager", icon=None if compact else ":material/share:", type="secondary" if compact else "primary", help="Partager par e-mail" if compact else None, use_container_width=True):
             st.caption("Téléchargez le PDF et joignez-le à votre e-mail. Aucun envoi automatique.")
             st.download_button("PDF à joindre", data=pdf, file_name=stem+'.pdf', mime="application/pdf", key=key+'_join', on_click="ignore")
             url = 'mailto:?' + urlencode({'subject':'PriceFlow — '+stem,'body':summary+'\n\n[Joindre le PDF téléchargé avant envoi.]'},quote_via=quote)
@@ -2061,7 +2061,8 @@ if nav == "▣ Achats / Fournisseurs":
 
     if uploaded:
         progress = st.progress(0, text=f"Lecture du PDF — {uploaded.name}")
-        st.caption("La barre avance par étapes terminées. La lecture des scans (OCR) peut prendre plus de temps.")
+        progress_note = st.empty()
+        progress_note.caption("Lecture du PDF en cours. L’OCR peut prendre plus de temps.")
         try:
             with st.spinner(f"Lecture de {uploaded.name} — OCR si nécessaire…", show_time=True):
                 documents = purchase_documents(uploaded.getvalue())
@@ -2075,7 +2076,8 @@ if nav == "▣ Achats / Fournisseurs":
             source_upload.name = uploaded.name if len(documents) == 1 else f"{Path(uploaded.name).stem}_BL_{part_number}.pdf"
             with st.spinner("Extraction des articles et contrôle des montants…", show_time=True):
                 rows, supplier, doc_number, total_ht, extra_charges = extract_document(part_bytes, part_text)
-            progress.progress(1.0, text=f"Lecture terminée — {len(rows)} lignes extraites")
+            progress.empty()
+            progress_note.empty()
             if used_ocr:
                 st.info("Document lu par OCR : vérifiez les références et désignations dans l'aperçu, même lorsque les totaux concordent.")
 
@@ -2143,49 +2145,42 @@ if nav == "▣ Achats / Fournisseurs":
                 ecart = round(control_total - total_extrait, 2) if control_total is not None else None
 
                 ctrl1, ctrl2, ctrl3 = st.columns(3)
-                ctrl1.metric("Total HT + REP séparée" if separate_charges else "Total HT du BL", fmt_money(control_total))
+                ctrl1.metric("Total HT + REP séparée" if separate_charges else "Total HT du document", fmt_money(control_total))
                 ctrl2.metric("Total extrait", fmt_money(total_extrait))
                 ctrl3.metric("Écart", fmt_money(ecart))
 
-                if charges_to_add:
-                    eco_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "ÉCO-CONTRIBUTION"), 2)
-                    energy_total = round(sum(x["amount"] for x in extra_charges if x["label"] == "SURCHARGE ÉNERGIE"), 2)
-                    details = []
-                    if eco_total:
-                        details.append(f"éco-contribution : {fmt_money(eco_total)}")
-                    if energy_total:
-                        details.append(f"surcharge énergie : {fmt_money(energy_total)}")
-                    st.info(
-                        f"♻️ Frais complémentaires détectés : {fmt_money(extras_total)} "
-                        f"({', '.join(details)}). Ils ont été regroupés en une seule ligne et ajoutés au fichier Excel."
-                    )
-                    if separate_charges:
-                        st.caption(f"Total HT imprimé : {fmt_money(total_ht)} + REP facturée séparément : {fmt_money(separate_charges)}. Le contrôle inclut les deux montants.")
-                elif extra_charges and not charges_to_add:
-                    st.info(
-                        "♻️ Éco-contribution détectée, déjà comprise dans les lignes extraites. "
-                        "Elle n'est pas ajoutée une seconde fois dans l'Excel."
-                    )
-
-                if ecart is not None:
-                    if abs(ecart) <= 0.01:
-                        st.success(
-                            f"✅ Total extrait après intégration : {fmt_money(total_extrait)} — "
-                            f"Écart : {fmt_money(ecart)}"
-                        )
-                    else:
-                        st.warning(
-                            f"⚠️ Écart restant : {fmt_money(abs(ecart))}. "
-                            "Le document contient peut-être une autre ligne facturée, une remise ou un frais non encore détecté."
-                        )
+                summary = f"{len(rows)} articles" + (f" + 1 ligne de frais ({fmt_money(extras_total)})" if charges_to_add else "")
+                if ecart is None:
+                    st.info(f"Total du document non détecté · {summary} · Contrôle manuel nécessaire")
+                elif abs(ecart) <= 0.01:
+                    st.success(f"Montants concordants · {summary} · Écart : {fmt_money(ecart)}")
+                else:
+                    st.warning(f"Écart à vérifier : {fmt_money(abs(ecart))} · {summary}. Vérifiez les articles, remises et frais du document.")
+                if extra_charges:
+                    with st.expander("Détail des frais"):
+                        for charge in extra_charges:
+                            st.write(f"{charge['label']} : {fmt_money(charge['amount'])}")
+                        if charges_to_add:
+                            st.caption(f"{fmt_money(extras_total)} regroupés dans une ligne supplémentaire de l'Excel.")
+                        else:
+                            st.caption("Frais déjà compris dans les lignes extraites : aucun ajout dans l'Excel.")
+                        if separate_charges:
+                            st.caption(f"Total HT imprimé : {fmt_money(total_ht)} + REP séparée : {fmt_money(separate_charges)}. Le contrôle inclut les deux montants.")
 
                 adjusted = [r for r in rows if "Prix unitaire imprimé" in r and r["Prix unitaire"] != r["Prix unitaire imprimé"]]
                 if adjusted:
                     st.info("Certains prix unitaires imprimés sont arrondis. Pour reproduire le montant de chaque ligne dans l'export, le prix exporté est calculé à partir du montant imprimé divisé par la quantité.")
                     st.dataframe(pd.DataFrame(adjusted)[["Référence", "Prix unitaire imprimé", "Prix unitaire", "Montant imprimé"]], hide_index=True)
-                st.info(f"{len(rows)} ligne(s) extraite(s), {len(df)} ligne(s) dans l'export.")
                 pf_section("Aperçu avant export")
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.caption("Contrôlez les références, les quantités et les prix avant export.")
+                preview_df = df.copy()
+                preview_df["Montant HT"] = [article_sum([row]) for row in export_rows]
+                display_df = preview_df.rename(columns={"Prix unitaire": "PU HT"}).copy()
+                display_df["Quantité"] = display_df["Quantité"].map(lambda value: f"{float(value):g}".replace(".", ","))
+                display_df["PU HT"] = display_df["PU HT"].map(lambda value: pf_number(value, 4 if abs(float(value)-round(float(value), 2)) > 0.000001 else 2) + " €")
+                display_df["Montant HT"] = display_df["Montant HT"].map(fmt_money)
+                display_df.loc[len(display_df)] = ["", "TOTAL HT", "", "", fmt_money(total_extrait)]
+                pf_simple_table(display_df)
 
                 # XlsxWriter écrit les chaînes dans sharedStrings.xml.
                 # C'est le format qui a été validé par le Test 1 dans l'import Esabora.
@@ -2210,7 +2205,7 @@ if nav == "▣ Achats / Fournisseurs":
                 purchase_pdf = document_pdf("Achats / Fournisseurs", {
                     "Fournisseur": supplier, "Document": doc_number, "Total HT document": fmt_money(total_ht),
                     "Total extrait": fmt_money(total_extrait), "Écart": fmt_money(ecart)}, [("Articles extraits", df)])
-                document_actions(output, purchase_pdf, f"Extraction_{safe_num}", f"Analyse du document {doc_number} — {supplier}.", "purchase")
+                document_actions(output, purchase_pdf, f"Extraction_{safe_num}", f"Analyse du document {doc_number} — {supplier}.", "purchase", compact=True)
 
                 signature = (source_upload.name, doc_number, len(df), total_ht, total_extrait)
                 if st.session_state.saved_signature != signature:
@@ -2238,6 +2233,7 @@ if nav == "▣ Achats / Fournisseurs":
 
         except Exception as e:
             progress.empty()
+            progress_note.empty()
             st.error(f"Erreur de lecture du PDF : {e}")
 
 if nav == "🏗 Locations":
