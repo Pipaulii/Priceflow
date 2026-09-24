@@ -94,6 +94,25 @@ def pf_supplier_logo(supplier):
         st.markdown(f'<img src="data:image/png;base64,{logo}" alt="{html.escape(supplier)}" style="height:70px;max-width:260px;object-fit:contain;background:white;border-radius:8px;padding:8px">', unsafe_allow_html=True)
 
 
+def pf_document_identity(supplier, document_number, label="Fournisseur"):
+    supplier = str(supplier)
+    brand = "pum" if supplier == "PUM" else "tube" if "H-TUBE" in supplier else "frans" if "FRANS BONHOMME" in supplier else supplier
+    logo = PF_SUPPLIER_LOGOS.get(supplier) or PF_SUPPLIER_LOGOS.get(brand)
+    logo_html = f'<img src="data:image/png;base64,{logo}" alt="" style="width:112px;height:48px;object-fit:contain;flex:0 0 112px">' if logo else ""
+    card_style = "background:#fff;border:1px solid #d5e1f0;border-radius:14px;padding:18px 22px;min-height:112px;box-sizing:border-box;flex:1 1 280px;min-width:0"
+    label_style = "color:#526783;font-size:14px;margin-bottom:8px"
+    value_style = "font-size:clamp(20px,2vw,28px);font-weight:500;color:#172b49;line-height:1.25;overflow-wrap:anywhere"
+    st.markdown(
+        f'<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:16px">'
+        f'<div style="{card_style}"><div style="{label_style}">{html.escape(label)}</div>'
+        f'<div style="display:flex;align-items:center;gap:20px;min-height:48px;flex-wrap:wrap">{logo_html}'
+        f'<span style="{value_style}">{html.escape(supplier)}</span></div></div>'
+        f'<div style="{card_style}"><div style="{label_style}">N° document</div>'
+        f'<div style="{value_style};display:flex;align-items:center;min-height:48px">{html.escape(str(document_number))}</div></div></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def pf_supplier_cards(offers):
     cards = []
     for offer in offers:
@@ -1628,11 +1647,12 @@ def comparison_pdf(export_rows, suppliers, offers, saving, comparable_count):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
+    import base64
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=24, leftMargin=24,
                             topMargin=25, bottomMargin=30, title="PriceFlow - Comparatif fournisseurs")
-    normal = ParagraphStyle("Cell", fontName="Helvetica", fontSize=7, leading=9, textColor=colors.HexColor("#102039"))
+    normal = ParagraphStyle("Cell", fontName="Helvetica", fontSize=8, leading=10, textColor=colors.HexColor("#102039"))
     heading = ParagraphStyle("Heading", parent=normal, fontName="Helvetica-Bold", fontSize=17, leading=22)
     def p(value):
         return Paragraph(html.escape(str(value)), normal)
@@ -1646,20 +1666,42 @@ def comparison_pdf(export_rows, suppliers, offers, saving, comparable_count):
         story += [Paragraph("PriceFlow | Comparatif fournisseurs", heading), Spacer(1, 8),
                   p(f"Économie potentielle : {fmt_money(saving)} sur {comparable_count} lignes comparables. {len(export_rows)} lignes analysées."),
                   p("Rapprochements automatiques à vérifier. Les totaux ci-dessous portent sur les lignes affichées, hors frais non comparés."), Spacer(1, 8)]
+        supplier_cards = []
         for offer in offers:
             if offer['Fournisseur'] in group:
-                story.append(p(f"{offer['Fournisseur']} — Devis {offer['N° document']} — Total HT du document : {fmt_money(offer['Total HT'])}"))
+                name = offer['Fournisseur']
+                brand = "pum" if name == "PUM" else "tube" if "H-TUBE" in name else "frans" if "FRANS BONHOMME" in name else name
+                logo = globals().get("PF_SUPPLIER_LOGOS", {}).get(name) or globals().get("PF_SUPPLIER_LOGOS", {}).get(brand)
+                card = []
+                if logo:
+                    picture = Image(io.BytesIO(base64.b64decode(logo)))
+                    scale = min(110 / picture.imageWidth, 28 / picture.imageHeight)
+                    picture.drawWidth = picture.imageWidth * scale
+                    picture.drawHeight = picture.imageHeight * scale
+                    picture.hAlign = "LEFT"
+                    card += [picture, Spacer(1, 5)]
+                card.append(p(f"{name} — Devis {offer['N° document']} — Total HT du document : {fmt_money(offer['Total HT'])}"))
+                supplier_cards.append(card)
+        if supplier_cards:
+            cards = Table([supplier_cards], colWidths=[doc.width / len(supplier_cards)] * len(supplier_cards))
+            cards.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('BACKGROUND',(0,0),(-1,-1),colors.HexColor('#f3f7fc')),('BOX',(0,0),(-1,-1),.4,colors.HexColor('#dce4ef')),('TOPPADDING',(0,0),(-1,-1),8),('BOTTOMPADDING',(0,0),(-1,-1),8)]))
+            story.append(cards)
+        story.append(p("* Offre unique : aucun autre prix disponible pour cette ligne. Les économies portent uniquement sur les lignes comparables."))
         story.append(Spacer(1, 10))
         header = [p("#"), p("Désignation"), p("Qté")]
         for supplier in group:
-            header += [p(supplier + " / PU €"), p("Total €")]
-        header += [p("Meilleur fournisseur"), p("PU €"), p("Total €"), p("Écart max €")]
+            header += [p(supplier.replace("H-TUBE / POINT PLASTIQUE", "H-TUBE") + " / PU HT €"), p("Total HT €")]
+        header += [p("Prix retenu / fournisseur"), p("PU HT €"), p("Total HT €"), p("Écart max €")]
         data = [header]
         for row in export_rows:
             cells = [p(row['#']), p(row['Désignation']), p(f"{row['Qté']:g}")]
             for supplier in group:
                 cells += [p(money(row.get(supplier + ' PU'))), p(money(row.get(supplier + ' Total')))]
-            cells += [p(row['Meilleur fournisseur']), p(money(row['Meilleur PU'])), p(money(row['Meilleur total'])), p(money(row['Écart max €']))]
+            comparable = sum(row.get(s + ' PU') is not None for s in suppliers) >= 2
+            supplier_label = row['Meilleur fournisseur'].replace("H-TUBE / POINT PLASTIQUE", "H-TUBE")
+            if not comparable:
+                supplier_label += " *"
+            cells += [p(supplier_label), p(money(row['Meilleur PU'])), p(money(row['Meilleur total'])), p(money(row['Écart max €']) if comparable else "—")]
             data.append(cells)
         footer = [p(""), p("TOTAL DES LIGNES AFFICHÉES"), p("")]
         for supplier in group:
@@ -1667,8 +1709,8 @@ def comparison_pdf(export_rows, suppliers, offers, saving, comparable_count):
         footer += [p(""), p(""), p(money(sum(row['Meilleur total'] for row in export_rows))), p(money(sum(row['Écart max €'] for row in export_rows)))]
         data.append(footer)
         fixed = [22, 175, 28]
-        supplier_width = (doc.width - sum(fixed) - 195) / (2 * len(group))
-        widths = fixed + [supplier_width] * (2 * len(group)) + [85, 35, 40, 35]
+        supplier_width = (doc.width - sum(fixed) - 227) / (2 * len(group))
+        widths = fixed + [supplier_width] * (2 * len(group)) + [85, 42, 52, 48]
         table = Table(data, colWidths=widths, repeatRows=1, hAlign="LEFT")
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eaf3ff")),
@@ -1677,7 +1719,7 @@ def comparison_pdf(export_rows, suppliers, offers, saving, comparable_count):
             ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eaf3ff")),
             ("GRID", (0, 0), (-1, -1), .3, colors.HexColor("#dce4ef")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ]))
         story.append(table)
     def page_footer(canvas, document):
@@ -2081,10 +2123,7 @@ if nav == "▣ Achats / Fournisseurs":
             if used_ocr:
                 st.info("Document lu par OCR : vérifiez les références et désignations dans l'aperçu, même lorsque les totaux concordent.")
 
-            pf_supplier_logo(supplier)
-            info1, info2 = st.columns(2)
-            info1.metric("Fournisseur", supplier)
-            info2.metric("N° document", doc_number)
+            pf_document_identity(supplier, doc_number)
 
             if rows:
                 # Format d'import validé dans Esabora (Test 1).
@@ -2262,10 +2301,7 @@ if nav == "🏗 Locations":
             with st.spinner(f"Lecture de {uploaded_loc.name} — OCR si nécessaire…", show_time=True):
                 loc = extract_rental(uploaded_loc.getvalue())
             progress.progress(1.0, text=f"Lecture terminée — {len(loc['Lignes'])} lignes extraites")
-            pf_supplier_logo(loc["Loueur"])
-            c1, c2 = st.columns(2)
-            c1.metric("Loueur", loc["Loueur"])
-            c2.metric("N° document", loc["N° document"])
+            pf_document_identity(loc["Loueur"], loc["N° document"], "Loueur")
 
             d1, d2, d3 = st.columns(3)
             d1.metric("Début", loc["Date début"] or "Non détecté")
