@@ -56,3 +56,23 @@ Les PDF ont été rendus pour inspection visuelle. Les références et désignat
 - Moteur d’extraction identique à la version corrigée précédente, hormis le traitement des annexes Anconetti et le message de dépendances OCR.
 - Connexion et historique cloud conservés dans le fichier livré ; aucune connexion au service distant ni déploiement effectués durant ces tests.
 - Nouveau contrôle du scan Anconetti contenant deux BL : 4121520 à 36,87 € et 4122188 à 428,30 €, tous deux avec écart nul.
+
+## Progression uniforme
+
+Compilation et navigation des trois pages validées. Barre Locations vérifiée à 100 % avec un exemple de location dans AppTest. Boucle de progression du comparatif vérifiée avec deux succès puis deux échecs simulés : progression complète, erreurs correctement comptabilisées.
+
+## Locations — 24 septembre
+
+- Accès Industrie DEV-COM-AIX1260077 : trois lignes de base = 550 € ; cinq suppléments estimés (31,20 + 14 + 5,59 + 12 + 23,20) = 85,99 € ; total estimé 635,99 € ; total imprimé laissé vide.
+- Actis 35574 : cinq lignes = 3270,52 €, écart nul.
+- Loxam 905410040433 : huit lignes = 662,35 €, écart nul.
+- Exécution du bloc réel d’export et relecture des trois classeurs en mémoire : totaux et distinction base/estimation validés.
+- Page Locations contrôlée avec AppTest sur les données Accès Industrie extraites : 635,99 € affichés, aucune exception.
+
+## Connexion harmonisée
+
+Affichage des cinq champs connexion/inscription et validation de connexion vide contrôlés avec AppTest. Rendu vérifié dans le navigateur local. Aucun appel au service de connexion externe pendant ces contrôles.
+
+## Brand France — 1692-1977 V.1
+
+Extraction vérifiée : trois lignes [420, 272, 272], dates 28/08/2026–08/09/2026 prévisionnelles, supplément 24,83 € par facture, aucun faux total imprimé. Bloc réel d’export exécuté et classeur relu : base 964 €, estimation 988,83 €, réserves présentes. AppTest Locations : total estimé affiché, aucune exception. Lecture des trois exemples Accès Industrie, Actis et Loxam conservée.

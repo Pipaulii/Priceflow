@@ -32,3 +32,21 @@ L'OCR principal RapidOCR ne nécessite pas d'installation manuelle de Tesseract.
 La connexion, les droits d'administration et les exports sont conservés. Les données de démonstration et les raccourcis de connexion utilisés pour les contrôles locaux ne sont pas inclus dans l'application livrée.
 
 Les contrôles sont locaux ; cette archive n'a pas été déployée sur votre serveur.
+
+## Mise à jour : progression uniforme
+
+Achats / Fournisseurs, Locations et Comparatif affichent désormais une barre par étapes terminées, le nom du fichier et un indicateur animé avec temps écoulé pendant la lecture. Le comparatif indique le nombre de documents traités et distingue les erreurs. Cette évolution rend le traitement visible ; elle ne réduit pas la durée de l’OCR. Si le paquet blanc et bleu précédent est déjà installé avec ses dépendances, seul app.py doit être remplacé.
+
+## Correction Locations — 24 septembre
+
+Le devis Accès Industrie distingue désormais les lignes de base, les suppléments annoncés dans le devis et le total estimé sous réserve des conditions applicables. L’export Excel comporte une feuille Suppléments estimés avec les calculs et la synthèse rappelle les réserves. Exemple DEV-COM-AIX1260077 : base 550 €, suppléments estimés 85,99 €, estimation 635,99 € HT. Aucun total imprimé n’est inventé. Les totaux Actis et Loxam restent fondés sur les lignes imprimées. Les barres de progression précédentes sont conservées.
+
+Si la version précédente est déjà installée, remplacez uniquement app.py puis redémarrez Streamlit.
+
+## Connexion harmonisée
+
+Bandeau blanc PriceFlow, carte de connexion centrée, onglets et boutons bleus. Création de compte harmonisée également. Remplacer app.py puis redémarrer.
+
+## Location échafaudage Brand France / SGB Hünnebeck
+
+Ajout du format Devis Location Simple testé sur 1692-1977 V.1. Base : location 420 € + transport aller 272 € + retour 272 € = 964 € HT. Contribution environnementale 24,83 € par facture : estimation 988,83 € HT pour une facture. Les sous-totaux 35 €/jour et 544 € de services ne sont pas confondus avec un total général. Les dates prévisionnelles, le transport variable et les frais éventuels exclus sont signalés dans l’interface et l’Excel. Cette validation porte sur le format fourni, pas sur tous les devis d’échafaudage. Remplacer uniquement app.py si les dépendances sont déjà installées.

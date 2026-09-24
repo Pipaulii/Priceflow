@@ -36,6 +36,8 @@ PF_AUTH_MAX_AGE = 60 * 60
 
 st.markdown('<style>:root{color-scheme:light!important;--pf-bg:#f7f9fc;--pf-panel:#fff;--pf-border:#dce4ef;--pf-blue:#087fff;--pf-text:#102039;--pf-muted:#63738a;--pf-green:#139556}\nhtml,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--pf-bg)!important;color:var(--pf-text)!important;font-family:"Source Sans 3","Segoe UI",sans-serif!important}\n[data-testid="stHeader"]{background:transparent!important;pointer-events:none;height:0!important}[data-testid="stToolbar"]{pointer-events:auto}\n.block-container{max-width:1560px;padding:22px 34px 30px!important}\n[data-testid="stVerticalBlock"]{gap:16px}\nh1,h2,h3,h4,p,label{color:var(--pf-text)}\n.st-key-pf_header{background:#fff;border:1px solid #edf1f7;border-radius:16px;box-shadow:0 12px 32px #20365012;padding:14px 22px 0;margin-bottom:20px}\n.st-key-pf_header [data-testid="stHorizontalBlock"]{align-items:center;gap:22px}\n.pf-brand{padding:1px 0 13px;white-space:nowrap}.pf-brand-name{font-size:42px;font-weight:800;letter-spacing:-1.6px;line-height:1.03;color:#09182d}.pf-brand-name span{color:var(--pf-blue)}.pf-brand small{display:block;font-size:15px;color:#596a81;margin-top:3px}\n.st-key-pf_nav{width:100%}.st-key-pf_nav [role="radiogroup"]>div:last-child{margin-left:auto}.st-key-pf_nav [data-testid="stRadio"]>label{display:none}\n.st-key-pf_nav [role="radiogroup"]{display:flex;flex-wrap:nowrap;align-items:stretch;gap:2px;width:100%}\n.st-key-pf_nav [role="radiogroup"] label{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;padding:22px 12px 25px;margin:0!important;min-height:78px;white-space:nowrap;border-bottom:3px solid transparent;cursor:pointer;border-radius:6px 6px 0 0}\n.st-key-pf_nav [role="radiogroup"] label>div:first-child{display:none!important}.st-key-pf_nav [data-testid="stRadioOption"]>div>div:first-child{display:none!important}\n.st-key-pf_nav [role="radiogroup"] label p{font-size:15px!important;font-weight:550;line-height:1.2;color:#24354d}\n.st-key-pf_nav [role="radiogroup"] label:before{content:"";width:26px;height:29px;flex-shrink:0;background:currentColor;mask-size:contain;mask-position:center;mask-repeat:no-repeat;color:#253b58}\n.st-key-pf_nav [role="radiogroup"] label:has(input:checked){border-bottom-color:var(--pf-blue);background:#f8fbff}\n.st-key-pf_nav [role="radiogroup"] label:has(input:checked) p,.st-key-pf_nav [role="radiogroup"] label:has(input:checked):before{color:var(--pf-blue)}\n.st-key-pf_nav [role="radiogroup"] label:hover{background:#f2f7fe}.st-key-pf_nav [role="radiogroup"] label:focus-within{outline:2px solid #94c8ff;outline-offset:-3px}\n.st-key-pf_nav [role="radiogroup"]>:last-child label{margin-left:auto!important;border-bottom-color:transparent}\n.st-key-pf_nav [role="radiogroup"]>:last-child label:before{content:var(--pf-initials,"PF");mask:none!important;background:var(--pf-blue);color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}\n.pf-page-heading{display:flex;align-items:center;gap:20px;padding:9px 0 14px}.pf-page-heading .pf-icon{color:var(--pf-blue);width:46px;height:46px;flex-shrink:0}.pf-page-heading h2{font-size:34px;font-weight:750;letter-spacing:-.6px;line-height:1.15;padding:0;margin:0}.pf-page-heading p{font-size:17px;color:#4d607a;margin:4px 0 0;line-height:1.4}\n.pf-icon{display:inline-block;width:24px;height:24px;vertical-align:middle}.pf-icon svg{display:block;width:100%;height:100%}\n[class*="st-key-pf_title_"] [data-testid="stHorizontalBlock"]{align-items:center}\n.stButton>button,.stFormSubmitButton>button,.stDownloadButton>button{border-radius:9px!important;border:1px solid #bdd6ee!important;background:#fff!important;color:#1761aa!important;min-height:44px;font-weight:600;padding:10px 18px;transition:background .15s,box-shadow .15s}\n.stButton>button:hover,.stDownloadButton>button:hover{background:#eef6ff!important;border-color:#087fff!important}\nbutton[kind="primary"],.stDownloadButton button[kind="primary"]{background:#087fff!important;border-color:#087fff!important;color:white!important;box-shadow:0 4px 9px #087fff24}\nbutton[kind="primary"] p{color:white!important}button[kind="primary"]:hover{background:#006de0!important}\n[data-testid="stFileUploader"]>label p{font-size:16px!important;font-weight:500!important}\n[data-testid="stFileUploaderDropzone"]{min-height:82px;background:#f1f6fc;border:1px dashed #c8d9ec;border-radius:11px;padding:14px 18px}\n[data-testid="stFileUploaderDropzone"] button{background:#fff;color:#1568bd;border:1px solid #b8d2ee;border-radius:8px}\n[data-testid="stFileUploaderFile"]{background:#fff;border-radius:8px;border:1px solid #e1e9f3;padding:8px 12px}\n[data-testid="stMetric"]{background:#fff;border:1px solid #d6e0ed;border-radius:12px;padding:16px 20px;min-height:108px;box-shadow:0 1px 2px #16345a03}\n[data-testid="stMetricLabel"] p{font-size:16px!important;font-weight:400!important;color:#3c4e65!important}\n[data-testid="stMetricValue"]{font-size:31px!important;line-height:1.35!important;font-weight:450!important;color:#102039!important;font-variant-numeric:tabular-nums}\n[data-testid="stAlert"]{border-radius:10px;padding:14px 18px}[data-testid="stAlert"] p{font-size:15px;line-height:1.45}\n[data-baseweb="notification"]{border-radius:10px}\n[data-testid="stTextInput"] input,[data-testid="stTextArea"] textarea,[data-baseweb="select"]>div{background:#fff!important;color:#102039!important;border-color:#d6e0ed}\n[data-testid="stExpander"]{border:1px solid #dce5ef;border-radius:10px;background:#fff}\n[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid #dce4ef;border-radius:11px;overflow:hidden;background:#fff}\n.pf-section-title{display:flex;gap:12px;align-items:center;margin:9px 0 12px}.pf-section-title .pf-icon{width:27px;height:27px;color:var(--pf-blue)}.pf-section-title h3{font-size:25px;font-weight:700;margin:0;padding:0;color:#102039}\n.pf-table-wrap{width:100%;overflow:auto;border:1px solid #dce4ef;border-radius:11px;background:#fff;margin:2px 0 8px;box-shadow:0 2px 5px #19324a04}\n.pf-table{border-collapse:separate;border-spacing:0;width:100%;min-width:1100px;font-size:14px;font-variant-numeric:tabular-nums;color:#20344d}\n.pf-table th,.pf-table td{padding:11px 13px;text-align:right;border-right:1px solid #e5ebf3;border-bottom:1px solid #e5ebf3;white-space:nowrap}\n.pf-table th{background:#f1f5fa;color:#31465f;font-weight:600}.pf-table th.left,.pf-table td.left{text-align:left}.pf-table td.left{max-width:340px;white-space:normal;min-width:200px}\n.pf-table th:last-child,.pf-table td:last-child{border-right:0}.pf-table tbody tr:last-child td{border-bottom:0}.pf-table tbody tr:nth-child(even) td:not(.best){background:#fbfcfe}.pf-table tbody tr:hover td:not(.best){background:#f1f7ff}\n.pf-table .supplier-head{text-align:center;background:#f0f5fb;color:#153a64;padding:16px 10px}.pf-table .best-head{text-align:center;background:#eaf8f0;color:#158049}.pf-table td.best{background:#f0faf4;color:#118448;font-weight:650}.pf-table tr.total td{background:#edf3fa!important;font-weight:750;padding-top:15px;padding-bottom:15px}.pf-table tr.total td.best{background:#e1f4e9!important}\n.pf-simple-table{min-width:500px;font-size:15px}.pf-simple-table th:first-child,.pf-simple-table td:first-child{text-align:left;white-space:normal;width:72%}.pf-simple-table th{font-weight:500;padding:9px 14px}.pf-simple-table td{padding:9px 14px}\n.pf-supplier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:8px 0 4px}.pf-supplier-card{background:white;border:1px solid #dce4ef;border-radius:12px;padding:20px 22px;min-height:114px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 3px 12px #1f375408}\n.pf-supplier-name{font-size:24px;font-weight:800;letter-spacing:-.4px;color:#15588f}.pf-supplier-meta{font-size:13px;color:#687c92;margin-top:9px}.pf-supplier-card[data-brand="pum"] .pf-supplier-name{color:#0088c5;font-size:37px}.pf-supplier-card[data-brand="tube"] .pf-supplier-name{color:#155389;font-size:28px}.pf-supplier-card[data-brand="frans"] .pf-supplier-name{color:#222;letter-spacing:-1px;border-left:4px solid #ee334e;padding-left:10px;font-size:24px}\n.pf-comparison-summary{display:flex;justify-content:space-between;gap:16px;align-items:center;margin:0 0 8px;padding:15px 20px;border:1px solid #c8e7d7;border-radius:11px;background:#f0faf4}.pf-comparison-summary strong{font-size:23px;color:#098645}.pf-comparison-summary span{color:#466859;font-size:15px}\n.pf-bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:8px 0 14px}.pf-note{background:#f0f7ff;border:1px solid #b5d8ff;border-radius:11px;padding:18px 22px;color:#245b92;line-height:1.75}.pf-note.green{background:#effaf3;border-color:#b8dfc9;color:#287243}.pf-note strong{font-size:23px;font-weight:700}.pf-note.green strong{color:#0e8a48}.pf-note span{font-size:14px;color:#61748a}\n.auth-card{max-width:620px;margin:20px auto;padding:25px;border:1px solid #dce4ef;border-radius:14px;background:#fff}\n[data-testid="stCaptionContainer"]{color:#718199;font-size:13px}\n@media(max-width:1200px){.block-container{padding:18px 22px!important}.pf-brand-name{font-size:34px}.pf-brand small{font-size:12px}.st-key-pf_header{padding:10px 15px 0}.st-key-pf_nav [role="radiogroup"] label{padding:20px 8px;gap:6px}.st-key-pf_nav [role="radiogroup"] label p{font-size:14px!important}.st-key-pf_nav [role="radiogroup"] label:before{width:21px}}\n@media(max-width:850px){.st-key-pf_header [data-testid="stHorizontalBlock"]{flex-wrap:wrap}.st-key-pf_header [data-testid="stColumn"]{min-width:100%!important;width:100%!important;flex:1 1 100%!important}.pf-brand{padding-bottom:0}.st-key-pf_header [data-testid="stHorizontalBlock"]{gap:4px}.st-key-pf_nav [role="radiogroup"]{overflow-x:auto}.st-key-pf_nav [role="radiogroup"] label{min-height:64px;padding:15px 10px}.st-key-pf_nav [role="radiogroup"]>:last-child label{margin-left:0!important}.pf-page-heading h2{font-size:29px}.pf-page-heading p{font-size:15px}.pf-page-heading{gap:13px}.pf-page-heading .pf-icon{width:35px;height:35px}.pf-bottom{grid-template-columns:1fr}}\n@media(max-width:600px){.block-container{padding:12px 14px!important}.st-key-pf_header{margin-bottom:8px}.pf-brand-name{font-size:34px}.pf-page-heading h2{font-size:27px}.pf-comparison-summary{align-items:flex-start;flex-direction:column}.pf-supplier-grid{grid-template-columns:1fr}.pf-table td.left{min-width:170px}[data-testid="stMetricValue"]{font-size:27px!important}.pf-market-grid{grid-template-columns:1fr!important}}\n\n.st-key-pf_nav [role="radiogroup"]>:nth-child(1) label:before{mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m12%203%209%205v9l-9%205-9-5V8z%22/%3E%3Cpath%20d%3D%22m3%208%209%205%209-5M12%2013v9M7.5%205.5l9%205%22/%3E%3C/svg%3E")}\n.st-key-pf_nav [role="radiogroup"]>:nth-child(2) label:before{mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%2022h8M6%2022V4h4v18M3%204h18v3H3zM8%201v3M19%207v7l-2%202M5%2010h6M5%2014h6M5%2018h6M10%204l5-3%206%203%22/%3E%3C/svg%3E")}\n.st-key-pf_nav [role="radiogroup"]>:nth-child(3) label:before{mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203v18M7%2021h10M4%206h16M4%206%201%2014h6L4%206Zm16%200-3%208h6l-3-8Z%22/%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%225%22%20r%3D%222%22/%3E%3C/svg%3E")}\n.st-key-pf_nav [role="radiogroup"]>:nth-child(4) label:before{mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%202H5v20h14V7l-5-5Z%22/%3E%3Cpath%20d%3D%22M14%202v6h5M8%2012h8M8%2016h8%22/%3E%3C/svg%3E")}\n.pf-market-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0 18px}.pf-market-kpi{background:#fff;border:1px solid #dbe5ef;border-radius:13px;padding:15px 17px;box-shadow:0 4px 14px rgba(31,55,84,.035)}.pf-market-kpi .n{font-size:1.7rem;font-weight:850;color:#071b33}.pf-market-kpi .l{font-size:.84rem;color:#62748a;margin-top:3px}.pf-finding{background:#fff;border:1px solid #dbe5ef;border-left:5px solid #0b8cff;border-radius:12px;padding:16px 18px;margin:10px 0}.pf-finding.warn{border-left-color:#f59e0b}.pf-finding.danger{border-left-color:#e34b4b}.pf-finding.link{border-left-color:#7c5cff}.pf-finding.ok{border-left-color:#12a56a}.pf-finding h4{margin:0 0 7px;font-size:1.05rem}.pf-finding p{margin:4px 0;color:#40556c}.pf-source{font-size:.82rem;color:#6d8095;margin-top:8px}.pf-source-box{background:#f6f9fc;border:1px solid #dce6ef;border-radius:9px;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.82rem;white-space:pre-wrap;color:#203449}.pf-doc-chip{display:inline-block;background:#eef6ff;color:#0b66bd;border:1px solid #c9e3ff;border-radius:999px;padding:5px 10px;margin:3px 5px 3px 0;font-size:.78rem}.pf-ai-note{background:#eef7ff;border:1px solid #b9ddff;border-radius:11px;padding:12px 15px;color:#31506e;margin:8px 0 16px}\n</style>', unsafe_allow_html=True)
 
+st.markdown('<style>.st-key-pf_auth_card{max-width:560px;margin:30px auto 24px;background:#fff;border:1px solid #dce4ef;border-radius:16px;padding:28px;box-shadow:0 12px 32px #2036500c}\n.st-key-pf_auth_card h3{font-size:27px;letter-spacing:-.5px;padding-top:0}\n.st-key-pf_auth_card [data-testid="stForm"]{border:0;padding:0}\n.st-key-pf_auth_card [role="tablist"]{gap:22px}\n.st-key-pf_auth_card [role="tab"][aria-selected="true"]{color:#087fff!important;border-bottom-color:#087fff!important}\n.st-key-pf_auth_card [data-baseweb="tab-highlight"]{background:#087fff!important}\n.st-key-pf_auth_card [data-testid="stTextInput"] input{min-height:44px;background:#f7f9fc;color:#102039}\n.st-key-pf_auth_card .stFormSubmitButton>button{background:#087fff!important;color:white!important;border-color:#087fff!important}.st-key-pf_auth_card .stFormSubmitButton>button p{color:white!important}.pf-auth-footer{text-align:center;color:#718199;font-size:13px}\n@media(max-width:600px){.st-key-pf_auth_card{padding:20px;margin-top:16px}}\n</style>', unsafe_allow_html=True)
+
 PF_ICONS = {'box': '<path d="m12 3 9 5v9l-9 5-9-5V8z"/><path d="m3 8 9 5 9-5M12 13v9M7.5 5.5l9 5"/>', 'crane': '<path d="M4 22h8M6 22V4h4v18M3 4h18v3H3zM8 1v3M19 7v7l-2 2M5 10h6M5 14h6M5 18h6M10 4l5-3 6 3"/>', 'scale': '<path d="M12 3v18M7 21h10M4 6h16M4 6 1 14h6L4 6Zm16 0-3 8h6l-3-8Z"/><circle cx="12" cy="5" r="2"/>', 'file': '<path d="M14 2H5v20h14V7l-5-5Z"/><path d="M14 2v6h5M8 12h8M8 16h8"/>', 'chart': '<path d="M4 20v-6h3v6M11 20V9h3v11M18 20V3h3v17"/>', 'user': '<circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>'}
 
 
@@ -1284,6 +1286,8 @@ def fmt_money(value):
 
 def rental_supplier(text):
     low = text.lower()
+    if "brandfrance.fr" in low or ("brand france" in low and "devis location" in low):
+        return "BRAND FRANCE / SGB HÜNNEBECK"
     if "loxam" in low and ("offre de location" in low or "retour de location" in low):
         return "LOXAM"
     if "actis location" in low or "actemis vitrolles" in low:
@@ -1291,6 +1295,52 @@ def rental_supplier(text):
     if "acces-industrie.com" in low or "accès industrie" in low or "acces industrie" in low:
         return "ACCÈS INDUSTRIE"
     return "Loueur non identifié"
+
+def rental_supplements(text, result, day_rate):
+    """Estime uniquement les suppléments annoncés dans l'offre Accès Industrie."""
+    section = re.search(r"les éléments suivants seront facturés en supplément\s*:(.*?)(?:Sous réserve|CONDITIONS GÉNÉRALES|$)", text, re.I | re.S)
+    if not section:
+        return []
+    conditions = clean(section.group(1))
+    lines = result["Lignes"]
+    rent = sum(x["Montant HT"] for x in lines if x["Désignation"] == "LOCATION")
+    electric = bool(re.search(r"ELECT|ÉLECT", result["Matériel"], re.I))
+    supplements = []
+
+    def add(label, amount, calculation):
+        amount = float(Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        supplements.append({"Désignation": label, "Calcul / condition": calculation, "Montant estimé HT": amount})
+
+    number = r"(\d+(?:[,.]\d+)?)"
+    m = re.search(r"renonciation à recours[^:]*:\s*" + number + r"\s*%", conditions, re.I)
+    if m and day_rate is not None:
+        try:
+            calendar_days = (datetime.strptime(result["Date fin"], "%d/%m/%Y") - datetime.strptime(result["Date début"], "%d/%m/%Y")).days + 1
+        except ValueError:
+            calendar_days = 0
+        if calendar_days > 0:
+            rate = fr_float(m.group(1))
+            add("RENONCIATION À RECOURS", Decimal(str(day_rate)) * calendar_days * Decimal(str(rate)) / 100,
+                f"{day_rate:g} € × {calendar_days} jours calendaires × {rate:g} %")
+    m = re.search(r"nettoyage[^:]*:\s*" + number + r"\s*€\s*pour une machine électrique", conditions, re.I)
+    if m and electric:
+        add("NETTOYAGE STANDARD", fr_float(m.group(1)), "Machine électrique — facturé en fin de contrat")
+    m = re.search(r"participation au recyclage\s*:\s*" + number + r"\s*%", conditions, re.I)
+    if m and rent:
+        rate = fr_float(m.group(1))
+        add("PARTICIPATION AU RECYCLAGE", Decimal(str(rent)) * Decimal(str(rate)) / 100, f"{rent:g} € de location × {rate:g} %")
+    m = re.search(r"forfait de charge électrique complète de\s*" + number + r"\s*€", conditions, re.I)
+    if m and electric:
+        add("RECHARGE ÉLECTRIQUE", fr_float(m.group(1)), "Sur les machines concernées — application à confirmer")
+    m = re.search(r"surcharge frais transport[^:]*:\s*" + number + r"\s*% du transport aller et\s*" + number + r"\s*% du transport retour", conditions, re.I)
+    if m:
+        outbound = sum(x["Montant HT"] for x in lines if x["Désignation"] == "LIVRAISON")
+        inbound = sum(x["Montant HT"] for x in lines if x["Désignation"] == "RÉCUPÉRATION")
+        a, b = fr_float(m.group(1)), fr_float(m.group(2))
+        add("SURCHARGE TRANSPORT", Decimal(str(outbound)) * Decimal(str(a)) / 100 + Decimal(str(inbound)) * Decimal(str(b)) / 100,
+            f"{outbound:g} € aller × {a:g} % + {inbound:g} € retour × {b:g} %")
+    return supplements
+
 
 def extract_rental(pdf_bytes):
     text = extract_pdf_text(pdf_bytes)
@@ -1305,9 +1355,41 @@ def extract_rental(pdf_bytes):
         "Durée": "",
         "Total HT document": None,
         "Lignes": [],
+        "Suppléments estimés": [],
+        "Points à vérifier": [],
+        "Conditions estimation": "Sous réserve des conditions du devis et d'un accord contraire ; recharge à confirmer.",
     }
 
-    if supplier == "ACTIS LOCATION":
+    if supplier == "BRAND FRANCE / SGB HÜNNEBECK":
+        m = re.search(r"Devis Location Simple\s*N[°º]\s*([\d-]+)\s*V\.?\s*(\d+)", text, re.I)
+        if m:
+            result["N° document"] = f"{m.group(1)} V.{m.group(2)}"
+        m = re.search(r"DUREE PREVISIONNELLE DE CHANTIER\s*:\s*(\d+)\s*Jour\(s\).*?Du\s*(\d{2}/\d{2}/\d{4})\s*au\s*(\d{2}/\d{2}/\d{4})", flat, re.I)
+        if m:
+            result["Durée"] = f"{m.group(1)} jours calendaires (prévisionnels)"
+            result["Date début"], result["Date fin"] = m.group(2), m.group(3)
+        materials = []
+        # Colonnes : code, désignation, durée, PU, quantité, total puis dimensions.
+        for m in re.finditer(r"(?m)^\s*(FRN\w+)\s+(.+?)\s+(\d+)\s+(\d+[,.]\d{3})\s+(\d+)\s+([\d ]+[,.]\d{2})(?=\s|$)", text):
+            ref, desc, duration, price, qty, amount = m.groups()
+            materials.append(clean(desc))
+            result["Lignes"].append({"Désignation": f"LOCATION — {ref} — {clean(desc)}", "Montant HT": fr_float(amount)})
+        if materials:
+            result["Matériel"] = " / ".join(materials)
+        for m in re.finditer(r"(?m)^\s*FR\s+(TA|TR)\s+(.+?)\s+(\d+[,.]\d{3})\s+(\d+)\s+([\d ]+[,.]\d{2})\s*$", text):
+            result["Lignes"].append({"Désignation": clean(m.group(2)), "Montant HT": fr_float(m.group(5))})
+        # Les deux sous-totaux (par jour / services) ne sont pas un total du devis.
+        result["Points à vérifier"] = [
+            "Période prévisionnelle : date de début de location à confirmer.",
+            "Transport susceptible de varier ; montage et démontage à la charge du client.",
+            "Nettoyage, détérioration, pièces manquantes et annulation : frais éventuels non inclus dans l'estimation.",
+        ]
+        result["Conditions estimation"] = "Hypothèse d'une seule facture : contribution environnementale appliquée une fois. Dates et transport à confirmer ; frais éventuels exclus."
+        m = re.search(r"Contribution environnement[^:]*:\s*(\d+[,.]\d{2})\s*€", text, re.I)
+        if m:
+            result["Suppléments estimés"].append({"Désignation": "CONTRIBUTION ENVIRONNEMENT", "Calcul / condition": "Par facture établie — hypothèse : 1 facture", "Montant estimé HT": fr_float(m.group(1))})
+
+    elif supplier == "ACTIS LOCATION":
         # Numéro / total
         m = re.search(r"Offre de location\s*#(\d+)", text, re.I)
         if m:
@@ -1471,8 +1553,10 @@ def extract_rental(pdf_bytes):
         if m:
             result["Lignes"].append({"Désignation": "RÉCUPÉRATION", "Montant HT": fr_float(m.group(1))})
 
-        # Ce format ne présente pas de total HT global imprimé.
-        result["Total HT document"] = None
+        # Les suppléments annoncés restent distincts des lignes de base et du total imprimé.
+        result["Suppléments estimés"] = rental_supplements(text, result, day_rate)
+        m = re.search(r"Total\s+HT\s*:?\s*([0-9 ]+[,.]\d{2})", text, re.I)
+        result["Total HT document"] = fr_float(m.group(1)) if m else None
 
     return result
 
@@ -1737,71 +1821,73 @@ def logout_priceflow():
     st.rerun()
 
 def render_auth():
-    st.markdown('<div class="auth-card">', unsafe_allow_html=True)
-    st.markdown('<div class="pf-brand"><div class="pf-brand-name">Price<span>Flow</span></div><small>Analyse & comparaison des achats</small></div>', unsafe_allow_html=True)
-    st.subheader("Bienvenue sur PriceFlow")
-    st.caption("Connectez-vous pour accéder à votre espace et à vos outils PriceFlow.")
+    with st.container(key="pf_header"):
+        st.markdown('<div class="pf-brand"><div class="pf-brand-name">Price<span>Flow</span></div><small>Analyse & comparaison des achats</small></div>', unsafe_allow_html=True)
+    with st.container(key="pf_auth_card"):
+        st.subheader("Bienvenue sur PriceFlow")
+        st.caption("Connectez-vous pour accéder à votre espace et à vos outils PriceFlow.")
 
-    login_tab, signup_tab = st.tabs(["🔐 Se connecter", "✨ Créer un compte"])
+        login_tab, signup_tab = st.tabs(["Se connecter", "Créer un compte"])
 
-    with login_tab:
-        with st.form("pf_login_form"):
-            email = st.text_input("Adresse e-mail", key="pf_login_email")
-            password = st.text_input("Mot de passe", type="password", key="pf_login_password")
-            submitted = st.form_submit_button("Se connecter", use_container_width=True)
-        if submitted:
-            if not email or not password:
-                st.warning("Renseignez votre adresse e-mail et votre mot de passe.")
-            else:
-                result, error = login_user(email, password)
-                if error:
-                    st.error(f"Connexion impossible : {error}")
-                elif result and result.get("access_token"):
-                    st.session_state.pf_session = result
-                    st.session_state.pf_user = result.get("user", {})
-                    _save_browser_session(result)
-                    time.sleep(0.25)
-                    st.rerun()
+        with login_tab:
+            with st.form("pf_login_form"):
+                email = st.text_input("Adresse e-mail", key="pf_login_email")
+                password = st.text_input("Mot de passe", type="password", key="pf_login_password")
+                submitted = st.form_submit_button("Se connecter", type="primary", use_container_width=True)
+            if submitted:
+                if not email or not password:
+                    st.warning("Renseignez votre adresse e-mail et votre mot de passe.")
                 else:
-                    st.error("Connexion impossible.")
+                    result, error = login_user(email, password)
+                    if error:
+                        st.error(f"Connexion impossible : {error}")
+                    elif result and result.get("access_token"):
+                        st.session_state.pf_session = result
+                        st.session_state.pf_user = result.get("user", {})
+                        _save_browser_session(result)
+                        time.sleep(0.25)
+                        st.rerun()
+                    else:
+                        st.error("Connexion impossible.")
 
-    with signup_tab:
-        with st.form("pf_signup_form"):
-            email = st.text_input("Adresse e-mail", key="pf_signup_email")
-            password = st.text_input(
-                "Mot de passe",
-                type="password",
-                key="pf_signup_password",
-                help="Utilisez au minimum 8 caractères.",
-            )
-            password2 = st.text_input("Confirmer le mot de passe", type="password", key="pf_signup_password2")
-            submitted = st.form_submit_button("Créer mon compte", use_container_width=True)
+        with signup_tab:
+            with st.form("pf_signup_form"):
+                email = st.text_input("Adresse e-mail", key="pf_signup_email")
+                password = st.text_input(
+                    "Mot de passe",
+                    type="password",
+                    key="pf_signup_password",
+                    help="Utilisez au minimum 8 caractères.",
+                )
+                password2 = st.text_input("Confirmer le mot de passe", type="password", key="pf_signup_password2")
+                submitted = st.form_submit_button("Créer mon compte", type="primary", use_container_width=True)
 
-        if submitted:
-            if not email or not password:
-                st.warning("Renseignez votre adresse e-mail et votre mot de passe.")
-            elif len(password) < 8:
-                st.warning("Le mot de passe doit contenir au moins 8 caractères.")
-            elif password != password2:
-                st.warning("Les deux mots de passe ne correspondent pas.")
-            else:
-                result, error = signup_user(email, password)
-                if error:
-                    st.error(f"Création impossible : {error}")
-                elif result and result.get("access_token"):
-                    st.session_state.pf_session = result
-                    st.session_state.pf_user = result.get("user", {})
-                    _save_browser_session(result)
-                    st.success("Compte créé. Vous êtes connecté.")
-                    time.sleep(0.25)
-                    st.rerun()
+            if submitted:
+                if not email or not password:
+                    st.warning("Renseignez votre adresse e-mail et votre mot de passe.")
+                elif len(password) < 8:
+                    st.warning("Le mot de passe doit contenir au moins 8 caractères.")
+                elif password != password2:
+                    st.warning("Les deux mots de passe ne correspondent pas.")
                 else:
-                    st.success(
-                        "Compte créé. Un e-mail de confirmation vient de vous être envoyé. "
-                        "Confirmez votre adresse puis revenez vous connecter à PriceFlow."
-                    )
+                    result, error = signup_user(email, password)
+                    if error:
+                        st.error(f"Création impossible : {error}")
+                    elif result and result.get("access_token"):
+                        st.session_state.pf_session = result
+                        st.session_state.pf_user = result.get("user", {})
+                        _save_browser_session(result)
+                        st.success("Compte créé. Vous êtes connecté.")
+                        time.sleep(0.25)
+                        st.rerun()
+                    else:
+                        st.success(
+                            "Compte créé. Un e-mail de confirmation vient de vous être envoyé. "
+                            "Confirmez votre adresse puis revenez vous connecter à PriceFlow."
+                        )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('<p class="pf-auth-footer">© 2026 Michel RACHOU · PriceFlow</p>', unsafe_allow_html=True)
+
 
 def require_login():
     session = st.session_state.get("pf_session")
@@ -2064,22 +2150,27 @@ if nav == "🏗 Locations":
             d3.metric("Durée", loc["Durée"] or "Non détectée")
 
             st.info(f"Matériel : **{loc['Matériel']}**")
+            for note in loc.get("Points à vérifier", []):
+                st.info(note)
 
             if loc["Lignes"]:
                 loc_df = pd.DataFrame(loc["Lignes"], columns=["Désignation", "Montant HT"])
                 total_loc = round(float(loc_df["Montant HT"].sum()), 2)
                 total_doc = loc["Total HT document"]
                 ecart_loc = round(total_doc - total_loc, 2) if total_doc is not None else None
+                supplements = loc.get("Suppléments estimés", [])
+                supplements_total = round(sum(x["Montant estimé HT"] for x in supplements), 2)
+                estimated_total = round(total_loc + supplements_total, 2) if supplements else None
 
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Total HT document", fmt_money(total_doc))
-                m2.metric("Total extrait", fmt_money(total_loc))
+                m2.metric("Sous-total de base HT" if supplements else "Total extrait", fmt_money(total_loc))
                 m3.metric("Écart", fmt_money(ecart_loc))
 
                 if total_doc is None:
                     st.info(
-                        "ℹ️ Aucun Total HT global n'est imprimé sur ce devis. "
-                        "Le total extrait correspond uniquement aux lignes chiffrées présentes dans l'offre."
+                        "Aucun total HT global détecté dans le devis. "
+                        "Le montant de base est calculé à partir des lignes de location et de prestations reconnues."
                     )
                 elif abs(ecart_loc) <= 0.01:
                     st.success(f"✅ Contrôle location OK — Écart : {fmt_money(ecart_loc)}")
@@ -2097,6 +2188,15 @@ if nav == "🏗 Locations":
                 pf_section("Détail de la location")
                 pf_simple_table(loc_df)
 
+                if supplements:
+                    pf_section("Suppléments annoncés dans le devis")
+                    st.warning(loc.get("Conditions estimation", "Sous réserve des conditions du devis.") +
+                               " Ces montants ne constituent pas un total imprimé ni une facture définitive.")
+                    pf_simple_table(pd.DataFrame(supplements))
+                    extra_col, estimate_col = st.columns(2)
+                    extra_col.metric("Suppléments estimés HT", fmt_money(supplements_total))
+                    estimate_col.metric("Total estimé avec suppléments HT", fmt_money(estimated_total))
+
                 export_loc = pd.DataFrame([{
                     "Loueur": loc["Loueur"],
                     "N° document": loc["N° document"],
@@ -2107,12 +2207,18 @@ if nav == "🏗 Locations":
                     "Total HT document": total_doc,
                     "Total extrait": total_loc,
                     "Écart": ecart_loc,
+                    "Suppléments estimés HT": supplements_total if supplements else None,
+                    "Total estimé HT": estimated_total,
+                    "Conditions estimation": loc.get("Conditions estimation", "") if supplements else "",
+                    "Points à vérifier": " | ".join(loc.get("Points à vérifier", [])),
                 }])
 
                 out_loc = io.BytesIO()
                 with pd.ExcelWriter(out_loc, engine="xlsxwriter") as writer:
                     export_loc.to_excel(writer, index=False, sheet_name="Synthèse")
                     loc_df.to_excel(writer, index=False, sheet_name="Détail")
+                    if supplements:
+                        pd.DataFrame(supplements).to_excel(writer, index=False, sheet_name="Suppléments estimés")
                     wb = writer.book
                     ws1 = writer.sheets["Synthèse"]
                     ws2 = writer.sheets["Détail"]
@@ -2120,8 +2226,15 @@ if nav == "🏗 Locations":
                     ws1.set_column("A:C", 28)
                     ws1.set_column("D:F", 16)
                     ws1.set_column("G:I", 18, money_fmt)
+                    ws1.set_column("J:K", 24, money_fmt)
+                    ws1.set_column("L:L", 70)
+                    ws1.set_column("M:M", 80)
                     ws2.set_column("A:A", 42)
                     ws2.set_column("B:B", 18, money_fmt)
+                    if supplements:
+                        writer.sheets["Suppléments estimés"].set_column("A:A", 32)
+                        writer.sheets["Suppléments estimés"].set_column("B:B", 65)
+                        writer.sheets["Suppléments estimés"].set_column("C:C", 22, money_fmt)
                 out_loc.seek(0)
 
                 safe_loc = re.sub(r"[^A-Za-z0-9._-]+", "_", loc["N° document"])
