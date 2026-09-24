@@ -50,3 +50,11 @@ Bandeau blanc PriceFlow, carte de connexion centrée, onglets et boutons bleus. 
 ## Location échafaudage Brand France / SGB Hünnebeck
 
 Ajout du format Devis Location Simple testé sur 1692-1977 V.1. Base : location 420 € + transport aller 272 € + retour 272 € = 964 € HT. Contribution environnementale 24,83 € par facture : estimation 988,83 € HT pour une facture. Les sous-totaux 35 €/jour et 544 € de services ne sont pas confondus avec un total général. Les dates prévisionnelles, le transport variable et les frais éventuels exclus sont signalés dans l’interface et l’Excel. Cette validation porte sur le format fourni, pas sur tous les devis d’échafaudage. Remplacer uniquement app.py si les dépendances sont déjà installées.
+
+## Logos, PDF et partage — 24 septembre
+
+Cette version contient toutes les corrections précédentes. Remplacez app.py ET requirements.txt puis redémarrez Streamlit : reportlab 4.4.9 est ajouté pour produire les PDF. Conservez packages.txt et .streamlit/config.toml fournis dans les versions précédentes.
+
+24 logos issus des devis fournis sont intégrés dans app.py. Ils apparaissent pour les fournisseurs reconnus dans Achats, Locations et Comparatif. Un fournisseur absent du catalogue conserve son nom. Les logos ne garantissent pas la reconnaissance de tous les formats de documents.
+
+Les trois rubriques proposent Exporter en Excel, Exporter en PDF et Partager. L’Excel Achats conserve son format d’import. Partager propose de télécharger le PDF et de préparer un e-mail dans votre messagerie habituelle. Il faut joindre le fichier et envoyer vous-même le message ; rien n’est envoyé automatiquement. Aucun lien public n’est créé.

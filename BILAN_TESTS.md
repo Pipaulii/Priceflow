@@ -76,3 +76,7 @@ Affichage des cinq champs connexion/inscription et validation de connexion vide 
 ## Brand France — 1692-1977 V.1
 
 Extraction vérifiée : trois lignes [420, 272, 272], dates 28/08/2026–08/09/2026 prévisionnelles, supplément 24,83 € par facture, aucun faux total imprimé. Bloc réel d’export exécuté et classeur relu : base 964 €, estimation 988,83 €, réserves présentes. AppTest Locations : total estimé affiché, aucune exception. Lecture des trois exemples Accès Industrie, Actis et Loxam conservée.
+
+## Logos et exports
+
+Catalogue de 24 logos extrait des documents fournis et contrôlé visuellement. AppTest : Achats (Anconetti), Locations (exemple) et Comparatif (données du corpus) affichent les trois téléchargements sans exception. Comparatif PDF : 47 lignes, 3 pages, tous les fournisseurs et totaux présents ; les trois pages ont été rendues et inspectées. PDF Location Brand : conditions et estimation conservées. Interface Comparatif : logos, rangée de synthèse/actions et menu de partage vérifiés dans le navigateur local. Aucun message envoyé ni déploiement réalisé.
