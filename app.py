@@ -98,7 +98,7 @@ def pf_document_identity(supplier, document_number, label="Fournisseur"):
     supplier = str(supplier)
     brand = "pum" if supplier == "PUM" else "tube" if "H-TUBE" in supplier else "frans" if "FRANS BONHOMME" in supplier else supplier
     logo = PF_SUPPLIER_LOGOS.get(supplier) or PF_SUPPLIER_LOGOS.get(brand)
-    logo_html = f'<img src="data:image/png;base64,{logo}" alt="" style="width:112px;height:48px;object-fit:contain;flex:0 0 112px">' if logo else ""
+    logo_html = f'<img src="data:image/png;base64,{logo}" alt="{html.escape(supplier, quote=True)}" title="{html.escape(supplier, quote=True)}" style="max-width:210px;width:auto;height:52px;object-fit:contain;object-position:left center">' if logo else ""
     card_style = "background:#fff;border:1px solid #d5e1f0;border-radius:14px;padding:18px 22px;min-height:112px;box-sizing:border-box;flex:1 1 280px;min-width:0"
     label_style = "color:#526783;font-size:14px;margin-bottom:8px"
     value_style = "font-size:clamp(20px,2vw,28px);font-weight:500;color:#172b49;line-height:1.25;overflow-wrap:anywhere"
@@ -106,7 +106,7 @@ def pf_document_identity(supplier, document_number, label="Fournisseur"):
         f'<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:16px">'
         f'<div style="{card_style}"><div style="{label_style}">{html.escape(label)}</div>'
         f'<div style="display:flex;align-items:center;gap:20px;min-height:48px;flex-wrap:wrap">{logo_html}'
-        f'<span style="{value_style}">{html.escape(supplier)}</span></div></div>'
+        f'{"" if logo else f"""<span style="{value_style}">{html.escape(supplier)}</span>"""}</div></div>'
         f'<div style="{card_style}"><div style="{label_style}">N° document</div>'
         f'<div style="{value_style};display:flex;align-items:center;min-height:48px">{html.escape(str(document_number))}</div></div></div>',
         unsafe_allow_html=True,
@@ -2107,7 +2107,12 @@ if nav == "▣ Achats / Fournisseurs":
         progress_note.caption("Lecture du PDF en cours. L’OCR peut prendre plus de temps.")
         try:
             with st.spinner(f"Lecture de {uploaded.name} — OCR si nécessaire…", show_time=True):
-                documents = purchase_documents(uploaded.getvalue())
+                source_digest = hashlib.sha256(uploaded.getvalue()).hexdigest()
+                cached_docs = st.session_state.get("purchase_source_cache")
+                if cached_docs is None or cached_docs[0] != source_digest:
+                    cached_docs = (source_digest, purchase_documents(uploaded.getvalue()))
+                    st.session_state.purchase_source_cache = cached_docs
+                documents = cached_docs[1]
             progress.progress(0.5, text="PDF lu — extraction des articles")
             selected = 0
             if len(documents) > 1:
@@ -2117,7 +2122,12 @@ if nav == "▣ Achats / Fournisseurs":
             source_upload = io.BytesIO(part_bytes)
             source_upload.name = uploaded.name if len(documents) == 1 else f"{Path(uploaded.name).stem}_BL_{part_number}.pdf"
             with st.spinner("Extraction des articles et contrôle des montants…", show_time=True):
-                rows, supplier, doc_number, total_ht, extra_charges = extract_document(part_bytes, part_text)
+                part_digest = hashlib.sha256(part_bytes).hexdigest()
+                cached_result = st.session_state.get("purchase_result_cache")
+                if cached_result is None or cached_result[0] != part_digest:
+                    cached_result = (part_digest, extract_document(part_bytes, part_text))
+                    st.session_state.purchase_result_cache = cached_result
+                rows, supplier, doc_number, total_ht, extra_charges = cached_result[1]
             progress.empty()
             progress_note.empty()
             if used_ocr:
@@ -2174,7 +2184,35 @@ if nav == "▣ Achats / Fournisseurs":
                     })
 
                 df = pd.DataFrame(export_rows, columns=["Référence", "Désignation", "Quantité", "Prix unitaire"])
-                df["Quantité"] = df["Quantité"].apply(lambda x: int(x) if pd.notna(x) and float(x).is_integer() else x)
+                df["Quantité"] = pd.to_numeric(df["Quantité"], errors="coerce").astype(float)
+                df["Prix unitaire"] = pd.to_numeric(df["Prix unitaire"], errors="coerce").astype(float)
+                pf_section("Aperçu avant export")
+                st.caption("Modifiez une cellule. Utilisez la ligne + en bas pour ajouter un article ; sélectionnez une ligne pour la supprimer. Les prix corrigés seront exportés.")
+                editor_key = f"purchase_editor_{part_digest}_{st.session_state.uploader_key}"
+                df = st.data_editor(df, key=editor_key, num_rows="dynamic", hide_index=True, use_container_width=True,
+                    column_config={
+                        "Référence": st.column_config.TextColumn("Référence"),
+                        "Désignation": st.column_config.TextColumn("Désignation", width="large", required=True),
+                        "Quantité": st.column_config.NumberColumn("Quantité", min_value=0.0, format="%.3f", required=True),
+                        "Prix unitaire": st.column_config.NumberColumn("PU HT", min_value=0.0, format="%.4f", required=True),
+                    })
+                invalid_rows = []
+                for idx, item in df.iterrows():
+                    q, price = pd.to_numeric(item["Quantité"], errors="coerce"), pd.to_numeric(item["Prix unitaire"], errors="coerce")
+                    if (pd.isna(q) or pd.isna(price) or not float("-inf") < float(q) < float("inf")
+                            or not float("-inf") < float(price) < float("inf") or q <= 0 or price < 0
+                            or pd.isna(item["Désignation"]) or not str(item["Désignation"]).strip()):
+                        invalid_rows.append(str(idx + 1))
+                if df.empty or invalid_rows:
+                    st.error("Complétez au moins une ligne avec une désignation, une quantité positive et un prix valide." +
+                             (" Lignes à corriger : " + ", ".join(invalid_rows) if invalid_rows else ""))
+                    st.stop()
+                df["Référence"] = df["Référence"].fillna("").astype(str)
+                df["Désignation"] = df["Désignation"].astype(str)
+                df["Quantité"] = pd.to_numeric(df["Quantité"])
+                df["Prix unitaire"] = pd.to_numeric(df["Prix unitaire"])
+                export_rows = df.to_dict("records")
+                edit_signature = hashlib.sha256((editor_key + df.to_json(orient="records", double_precision=15)).encode()).hexdigest()
 
                 # Contrôle comptable : comparaison du Total HT imprimé sur le BL
                 # avec la somme des lignes réellement extraites.
@@ -2188,7 +2226,7 @@ if nav == "▣ Achats / Fournisseurs":
                 ctrl2.metric("Total extrait", fmt_money(total_extrait))
                 ctrl3.metric("Écart", fmt_money(ecart))
 
-                summary = f"{len(rows)} articles" + (f" + 1 ligne de frais ({fmt_money(extras_total)})" if charges_to_add else "")
+                summary = f"{len(df)} lignes dans le tableau corrigé"
                 if ecart is None:
                     st.info(f"Total du document non détecté · {summary} · Contrôle manuel nécessaire")
                 elif abs(ecart) <= 0.01:
@@ -2210,8 +2248,7 @@ if nav == "▣ Achats / Fournisseurs":
                 if adjusted:
                     st.info("Certains prix unitaires imprimés sont arrondis. Pour reproduire le montant de chaque ligne dans l'export, le prix exporté est calculé à partir du montant imprimé divisé par la quantité.")
                     st.dataframe(pd.DataFrame(adjusted)[["Référence", "Prix unitaire imprimé", "Prix unitaire", "Montant imprimé"]], hide_index=True)
-                pf_section("Aperçu avant export")
-                st.caption("Contrôlez les références, les quantités et les prix avant export.")
+                st.caption("Montants recalculés à partir de vos corrections :")
                 preview_df = df.copy()
                 preview_df["Montant HT"] = [article_sum([row]) for row in export_rows]
                 display_df = preview_df.rename(columns={"Prix unitaire": "PU HT"}).copy()
@@ -2221,10 +2258,17 @@ if nav == "▣ Achats / Fournisseurs":
                 display_df.loc[len(display_df)] = ["", "TOTAL HT", "", "", fmt_money(total_extrait)]
                 pf_simple_table(display_df)
 
+                acknowledge = st.checkbox("J’ai contrôlé les lignes et les éventuels écarts avec le PDF.", key="purchase_checked_" + edit_signature)
+                if st.button("Valider les corrections", type="primary", disabled=not acknowledge, key="purchase_validate_" + editor_key):
+                    st.session_state.purchase_approved = edit_signature
+                if st.session_state.get("purchase_approved") != edit_signature or not acknowledge:
+                    st.info("Validez les corrections pour activer les exports Excel, PDF et partage. Toute modification nécessite une nouvelle validation.")
+                    st.stop()
+
                 # XlsxWriter écrit les chaînes dans sharedStrings.xml.
                 # C'est le format qui a été validé par le Test 1 dans l'import Esabora.
                 output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                with pd.ExcelWriter(output, engine="xlsxwriter", engine_kwargs={"options": {"strings_to_formulas": False, "strings_to_urls": False}}) as writer:
                     df.to_excel(writer, index=False, sheet_name="Feuil1")
                     workbook = writer.book
                     ws = writer.sheets["Feuil1"]
@@ -2246,7 +2290,7 @@ if nav == "▣ Achats / Fournisseurs":
                     "Total extrait": fmt_money(total_extrait), "Écart": fmt_money(ecart)}, [("Articles extraits", df)])
                 document_actions(output, purchase_pdf, f"Extraction_{safe_num}", f"Analyse du document {doc_number} — {supplier}.", "purchase", compact=True)
 
-                signature = (source_upload.name, doc_number, len(df), total_ht, total_extrait)
+                signature = (source_upload.name, doc_number, edit_signature, total_ht, total_extrait)
                 if st.session_state.saved_signature != signature:
                     entry = {
                         "Date": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -2299,7 +2343,11 @@ if nav == "🏗 Locations":
         st.caption("La barre avance par étapes terminées. La lecture des scans (OCR) peut prendre plus de temps.")
         try:
             with st.spinner(f"Lecture de {uploaded_loc.name} — OCR si nécessaire…", show_time=True):
-                loc = extract_rental(uploaded_loc.getvalue())
+                rental_digest = hashlib.sha256(uploaded_loc.getvalue()).hexdigest()
+                if st.session_state.get("rental_source_digest") != rental_digest:
+                    st.session_state.rental_source_result = extract_rental(uploaded_loc.getvalue())
+                    st.session_state.rental_source_digest = rental_digest
+                loc = st.session_state.rental_source_result
             progress.progress(1.0, text=f"Lecture terminée — {len(loc['Lignes'])} lignes extraites")
             pf_document_identity(loc["Loueur"], loc["N° document"], "Loueur")
 
@@ -2314,6 +2362,21 @@ if nav == "🏗 Locations":
 
             if loc["Lignes"]:
                 loc_df = pd.DataFrame(loc["Lignes"], columns=["Désignation", "Montant HT"])
+                pf_section("Détail de la location")
+                st.caption("Modifiez les désignations et montants. Ajoutez une ligne en bas du tableau ou sélectionnez une ligne pour la supprimer.")
+                loc_df["Montant HT"] = pd.to_numeric(loc_df["Montant HT"], errors="coerce").astype(float)
+                rental_editor_key = f"rental_editor_{rental_digest}_{st.session_state.location_uploader_key}"
+                loc_df = st.data_editor(loc_df, key=rental_editor_key, num_rows="dynamic", hide_index=True,
+                    use_container_width=True, column_config={
+                        "Désignation": st.column_config.TextColumn("Désignation", required=True),
+                        "Montant HT": st.column_config.NumberColumn("Montant HT (€)", required=True, format="%.2f"),
+                    })
+                amounts = pd.to_numeric(loc_df["Montant HT"], errors="coerce")
+                if loc_df.empty or loc_df["Désignation"].fillna("").str.strip().eq("").any() or amounts.isna().any() or amounts.isin([float("inf"), float("-inf")]).any():
+                    st.error("Complétez les désignations et les montants avant de valider.")
+                    st.stop()
+                loc_df["Montant HT"] = amounts
+                rental_edit_signature = hashlib.sha256((rental_editor_key + loc_df.to_json(orient="records", double_precision=15)).encode()).hexdigest()
                 total_loc = round(float(loc_df["Montant HT"].sum()), 2)
                 total_doc = loc["Total HT document"]
                 ecart_loc = round(total_doc - total_loc, 2) if total_doc is not None else None
@@ -2344,8 +2407,6 @@ if nav == "🏗 Locations":
                     track_usage("location", {"supplier": loc["Loueur"], "document_number": loc["N° document"]})
                     st.session_state.last_location_usage = loc_signature
 
-                pf_section("Détail de la location")
-                pf_simple_table(loc_df)
 
                 if supplements:
                     pf_section("Suppléments annoncés dans le devis")
@@ -2372,8 +2433,14 @@ if nav == "🏗 Locations":
                     "Points à vérifier": " | ".join(loc.get("Points à vérifier", [])),
                 }])
 
+                rental_checked = st.checkbox("J’ai contrôlé les lignes et les éventuels écarts avec le devis.", key="rental_checked_" + rental_edit_signature)
+                if st.button("Valider les corrections", type="primary", disabled=not rental_checked, key="rental_validate_" + rental_editor_key):
+                    st.session_state.rental_approved = rental_edit_signature
+                if not rental_checked or st.session_state.get("rental_approved") != rental_edit_signature:
+                    st.info("Validez les corrections pour accéder aux exports.")
+                    st.stop()
                 out_loc = io.BytesIO()
-                with pd.ExcelWriter(out_loc, engine="xlsxwriter") as writer:
+                with pd.ExcelWriter(out_loc, engine="xlsxwriter", engine_kwargs={"options": {"strings_to_formulas": False, "strings_to_urls": False}}) as writer:
                     export_loc.to_excel(writer, index=False, sheet_name="Synthèse")
                     loc_df.to_excel(writer, index=False, sheet_name="Détail")
                     if supplements:
