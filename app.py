@@ -2247,13 +2247,6 @@ if nav == "▣ Achats / Fournisseurs":
                 adjusted = [r for r in rows if "Prix unitaire imprimé" in r and r["Prix unitaire"] != r["Prix unitaire imprimé"]]
                 if adjusted:
                     st.info("Certains prix unitaires imprimés sont arrondis. Pour reproduire le montant de chaque ligne dans l'export, le prix exporté est calculé à partir du montant imprimé divisé par la quantité.")
-                acknowledge = st.checkbox("J’ai contrôlé les lignes et les éventuels écarts avec le PDF.", key="purchase_checked_" + edit_signature)
-                if st.button("Valider les corrections", type="primary", disabled=not acknowledge, key="purchase_validate_" + editor_key):
-                    st.session_state.purchase_approved = edit_signature
-                if st.session_state.get("purchase_approved") != edit_signature or not acknowledge:
-                    st.info("Validez les corrections pour activer les exports Excel, PDF et partage. Toute modification nécessite une nouvelle validation.")
-                    st.stop()
-
                 # XlsxWriter écrit les chaînes dans sharedStrings.xml.
                 # C'est le format qui a été validé par le Test 1 dans l'import Esabora.
                 output = io.BytesIO()
@@ -2422,12 +2415,6 @@ if nav == "🏗 Locations":
                     "Points à vérifier": " | ".join(loc.get("Points à vérifier", [])),
                 }])
 
-                rental_checked = st.checkbox("J’ai contrôlé les lignes et les éventuels écarts avec le devis.", key="rental_checked_" + rental_edit_signature)
-                if st.button("Valider les corrections", type="primary", disabled=not rental_checked, key="rental_validate_" + rental_editor_key):
-                    st.session_state.rental_approved = rental_edit_signature
-                if not rental_checked or st.session_state.get("rental_approved") != rental_edit_signature:
-                    st.info("Validez les corrections pour accéder aux exports.")
-                    st.stop()
                 out_loc = io.BytesIO()
                 with pd.ExcelWriter(out_loc, engine="xlsxwriter", engine_kwargs={"options": {"strings_to_formulas": False, "strings_to_urls": False}}) as writer:
                     export_loc.to_excel(writer, index=False, sheet_name="Synthèse")
