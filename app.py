@@ -2247,17 +2247,6 @@ if nav == "▣ Achats / Fournisseurs":
                 adjusted = [r for r in rows if "Prix unitaire imprimé" in r and r["Prix unitaire"] != r["Prix unitaire imprimé"]]
                 if adjusted:
                     st.info("Certains prix unitaires imprimés sont arrondis. Pour reproduire le montant de chaque ligne dans l'export, le prix exporté est calculé à partir du montant imprimé divisé par la quantité.")
-                    st.dataframe(pd.DataFrame(adjusted)[["Référence", "Prix unitaire imprimé", "Prix unitaire", "Montant imprimé"]], hide_index=True)
-                st.caption("Montants recalculés à partir de vos corrections :")
-                preview_df = df.copy()
-                preview_df["Montant HT"] = [article_sum([row]) for row in export_rows]
-                display_df = preview_df.rename(columns={"Prix unitaire": "PU HT"}).copy()
-                display_df["Quantité"] = display_df["Quantité"].map(lambda value: f"{float(value):g}".replace(".", ","))
-                display_df["PU HT"] = display_df["PU HT"].map(lambda value: pf_number(value, 4 if abs(float(value)-round(float(value), 2)) > 0.000001 else 2) + " €")
-                display_df["Montant HT"] = display_df["Montant HT"].map(fmt_money)
-                display_df.loc[len(display_df)] = ["", "TOTAL HT", "", "", fmt_money(total_extrait)]
-                pf_simple_table(display_df)
-
                 acknowledge = st.checkbox("J’ai contrôlé les lignes et les éventuels écarts avec le PDF.", key="purchase_checked_" + edit_signature)
                 if st.button("Valider les corrections", type="primary", disabled=not acknowledge, key="purchase_validate_" + editor_key):
                     st.session_state.purchase_approved = edit_signature
